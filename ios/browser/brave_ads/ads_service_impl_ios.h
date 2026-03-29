@@ -172,6 +172,9 @@ class AdsServiceImplIOS : public AdsService {
   bool ShouldClearAdsData(const std::string& path) const;
   void MaybeClearAdsData(const std::string& path);
 
+  void OnSolveCaptchaToServeAds(const std::string& payment_id,
+                                const std::string& captcha_id);
+
   const raw_ref<PrefService> prefs_;
 
   PrefChangeRegistrar pref_change_registrar_;
