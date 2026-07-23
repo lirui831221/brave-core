@@ -33,6 +33,7 @@ class FakeBatAdsServiceFactory : public BatAdsServiceFactory {
   size_t launch_count() const { return launch_count_; }
   size_t initialize_count() const { return initialize_count_; }
   size_t shutdown_count() const { return shutdown_count_; }
+  size_t invalidate_count() const { return invalidate_count_; }
 
   size_t become_idle_count() const;
   size_t become_active_count() const;
@@ -52,6 +53,7 @@ class FakeBatAdsServiceFactory : public BatAdsServiceFactory {
 
   // BatAdsServiceFactory:
   mojo::Remote<bat_ads::mojom::BatAdsService> Launch() const override;
+  void Invalidate() const override;
 
  private:
   void OnInitialize() const { ++initialize_count_; }
@@ -66,6 +68,7 @@ class FakeBatAdsServiceFactory : public BatAdsServiceFactory {
   mutable size_t launch_count_ = 0;
   mutable size_t initialize_count_ = 0;
   mutable size_t shutdown_count_ = 0;
+  mutable size_t invalidate_count_ = 0;
 
   bool simulate_initialization_failure_ = false;
   bool simulate_shutdown_disconnect_ = false;

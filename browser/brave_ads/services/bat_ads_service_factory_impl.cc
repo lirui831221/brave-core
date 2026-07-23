@@ -10,7 +10,10 @@
 
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/synchronization/atomic_flag.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/single_thread_task_runner_thread_mode.h"
 #include "base/task/thread_pool.h"
@@ -31,16 +34,25 @@ BASE_FEATURE(kInProcessBraveAdsServiceFeature,
 constexpr base::FeatureParam<base::TimeDelta> kBraveAdsServiceStartupDelay{
     &kInProcessBraveAdsServiceFeature, "startup_delay", base::Seconds(0)};
 
-// Binds the `receiver` to a new provider on a background task runner.
+// Binds the `receiver` to a new provider on a background task runner, unless
+// `cancellation_flag` has since been set by a newer `Launch()` or an
+// `Invalidate()` call, in which case the receiver is dropped without
+// constructing a service.
 void BindInProcessBatAdsService(
+    scoped_refptr<base::RefCountedData<base::AtomicFlag>> cancellation_flag,
     mojo::PendingReceiver<bat_ads::mojom::BatAdsService>
         bat_ads_service_pending_receiver) {
+  if (cancellation_flag->data.IsSet()) {
+    return;
+  }
+
   mojo::MakeSelfOwnedReceiver(std::make_unique<bat_ads::BatAdsServiceImpl>(),
                               std::move(bat_ads_service_pending_receiver));
 }
 
 // Launches an in process Bat Ads Service.
-mojo::Remote<bat_ads::mojom::BatAdsService> LaunchInProcessBatAdsService() {
+mojo::Remote<bat_ads::mojom::BatAdsService> LaunchInProcessBatAdsService(
+    scoped_refptr<base::RefCountedData<base::AtomicFlag>> cancellation_flag) {
   mojo::Remote<bat_ads::mojom::BatAdsService> bat_ads_service_remote;
   base::ThreadPool::CreateSingleThreadTaskRunner(
       {base::MayBlock(), base::WithBaseSyncPrimitives()},
@@ -48,6 +60,7 @@ mojo::Remote<bat_ads::mojom::BatAdsService> LaunchInProcessBatAdsService() {
       ->PostDelayedTask(
           FROM_HERE,
           base::BindOnce(&BindInProcessBatAdsService,
+                         std::move(cancellation_flag),
                          bat_ads_service_remote.BindNewPipeAndPassReceiver()),
           kBraveAdsServiceStartupDelay.Get());
   return bat_ads_service_remote;
@@ -63,7 +76,18 @@ mojo::Remote<bat_ads::mojom::BatAdsService> BatAdsServiceFactoryImpl::Launch()
     const {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
-  return LaunchInProcessBatAdsService();
+  Invalidate();
+  cancellation_flag_ =
+      base::MakeRefCounted<base::RefCountedData<base::AtomicFlag>>();
+  return LaunchInProcessBatAdsService(cancellation_flag_);
+}
+
+void BatAdsServiceFactoryImpl::Invalidate() const {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+
+  if (cancellation_flag_) {
+    cancellation_flag_->data.Set();
+  }
 }
 
 }  // namespace brave_ads

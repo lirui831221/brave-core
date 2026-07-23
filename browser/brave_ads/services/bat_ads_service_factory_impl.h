@@ -6,6 +6,9 @@
 #ifndef BRAVE_BROWSER_BRAVE_ADS_SERVICES_BAT_ADS_SERVICE_FACTORY_IMPL_H_
 #define BRAVE_BROWSER_BRAVE_ADS_SERVICES_BAT_ADS_SERVICE_FACTORY_IMPL_H_
 
+#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
+#include "base/synchronization/atomic_flag.h"
 #include "brave/components/brave_ads/browser/bat_ads_service_factory.h"
 #include "brave/components/services/bat_ads/public/interfaces/bat_ads.mojom.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -23,6 +26,19 @@ class BatAdsServiceFactoryImpl final : public BatAdsServiceFactory {
 
   // BatAdsServiceFactory:
   mojo::Remote<bat_ads::mojom::BatAdsService> Launch() const override;
+  void Invalidate() const override;
+
+ private:
+  // Set whenever a new `Launch()` supersedes the previous one, or when
+  // `Invalidate()` is called, so a still-pending delayed bind becomes a
+  // no-op instead of constructing a stale service. Ref-counted (rather than
+  // owned solely by `this`) because the flag must remain valid even if
+  // `BatAdsServiceFactoryImpl` is destroyed while a delayed bind is still
+  // pending on its own dedicated thread; mirrors
+  // `base::CancelableTaskTracker`'s internal `TaskCancellationFlag` for the
+  // same cross-sequence-outlives-owner scenario.
+  mutable scoped_refptr<base::RefCountedData<base::AtomicFlag>>
+      cancellation_flag_;
 };
 
 }  // namespace brave_ads
