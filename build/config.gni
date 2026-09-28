@@ -34,6 +34,10 @@ declare_args() {
   # Used for generating delta installer on macOS/Windows
   last_chrome_installer = ""
 
+  # Path to the private key (DER-encoded PKCS #8) that is used to sign browser,
+  # extension and component updates.
+  crx_private_key = ""
+
   android_aab_to_apk = false
 
   # Path to the private key that is used to sign browser updates.
