@@ -37,13 +37,10 @@ constexpr char kRestoreResultPrefName[] = "brave.os_crypt.key_restore_result";
 // `os_crypt_async::kAppBoundEncryptedKeyPrefName`.
 constexpr char kEncryptedKeyPrefName[] = "os_crypt.encrypted_key";
 
-constexpr char kVersionKey[] = "version";
 constexpr char kCreatedKey[] = "created";
 constexpr char kOsCryptKey[] = "os_crypt";
 constexpr char kEncryptedKeyKey[] = "encrypted_key";
 constexpr char kAppBoundEncryptedKeyKey[] = "app_bound_encrypted_key";
-
-constexpr int kCurrentVersion = 1;
 
 constexpr char kHistogramSuffix[] = "OSCryptKeyBackup";
 
@@ -53,8 +50,6 @@ enum class BackupReadResult {
   kAbsent,
   // Present but not usable, so it protects nothing and may be replaced.
   kUnreadable,
-  // Written by a newer build. Not understood, but not ours to discard either.
-  kNewerVersion,
 };
 
 struct Backup {
@@ -76,12 +71,6 @@ Backup ReadBackup(const base::FilePath& path) {
       base::JSONReader::ReadDict(contents, base::JSON_PARSE_RFC);
   if (!root) {
     backup.result = BackupReadResult::kUnreadable;
-    return backup;
-  }
-
-  const std::optional<int> version = root->FindInt(kVersionKey);
-  if (!version || *version > kCurrentVersion) {
-    backup.result = BackupReadResult::kNewerVersion;
     return backup;
   }
 
@@ -115,8 +104,6 @@ OSCryptKeyBackupState WriteOSCryptKeyBackupIfAbsent(const base::FilePath& path,
       return existing.encrypted_key == encrypted_key
                  ? OSCryptKeyBackupState::kMatchesLiveKey
                  : OSCryptKeyBackupState::kDiffersFromLiveKey;
-    case BackupReadResult::kNewerVersion:
-      return OSCryptKeyBackupState::kDiffersFromLiveKey;
     case BackupReadResult::kAbsent:
     case BackupReadResult::kUnreadable:
       break;
@@ -129,7 +116,6 @@ OSCryptKeyBackupState WriteOSCryptKeyBackupIfAbsent(const base::FilePath& path,
   }
 
   base::DictValue root;
-  root.Set(kVersionKey, kCurrentVersion);
   root.Set(kCreatedKey, base::TimeToValue(base::Time::Now()));
   root.Set(kOsCryptKey, std::move(os_crypt));
 
@@ -188,7 +174,6 @@ void MaybeRestoreOSCryptKey(const base::FilePath& user_data_dir,
       record(OSCryptKeyRestoreResult::kNoBackup);
       return;
     case BackupReadResult::kUnreadable:
-    case BackupReadResult::kNewerVersion:
       record(OSCryptKeyRestoreResult::kBackupUnusable);
       return;
     case BackupReadResult::kOk:

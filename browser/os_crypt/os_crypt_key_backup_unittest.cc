@@ -76,14 +76,6 @@ TEST_F(OSCryptKeyBackupTest, ReplacesABackupItCannotRead) {
   EXPECT_NE(std::string::npos, Contents().find("wrapped-key"));
 }
 
-TEST_F(OSCryptKeyBackupTest, LeavesABackupFromANewerVersionAlone) {
-  ASSERT_TRUE(base::WriteFile(path(), R"({"version": 99})"));
-
-  EXPECT_EQ(OSCryptKeyBackupState::kDiffersFromLiveKey,
-            WriteOSCryptKeyBackupIfAbsent(path(), "wrapped-key", ""));
-  EXPECT_EQ(std::string::npos, Contents().find("wrapped-key"));
-}
-
 TEST_F(OSCryptKeyBackupTest, OmitsAnAbsentAppBoundKey) {
   ASSERT_EQ(OSCryptKeyBackupState::kCreated,
             WriteOSCryptKeyBackupIfAbsent(path(), "wrapped-key", ""));
