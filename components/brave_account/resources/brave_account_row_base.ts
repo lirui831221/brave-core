@@ -25,6 +25,7 @@ export abstract class BraveAccountRowBaseElement<
       browserProxy: { type: Object },
       initiatingServiceName: { type: String },
       state: { type: Object },
+      isResendingConfirmationEmail: { type: Boolean, state: true },
     }
   }
 
@@ -35,7 +36,7 @@ export abstract class BraveAccountRowBaseElement<
   // The actual shape of `state` is defined by the `State` constraint above.
   protected accessor state!: State & object
 
-  private isResendingConfirmationEmail = false
+  protected accessor isResendingConfirmationEmail = false
 
   // Tags the bare per-state intent into the union the service expects.
   protected abstract makeVerificationIntent(intent: Intent): VerificationIntent

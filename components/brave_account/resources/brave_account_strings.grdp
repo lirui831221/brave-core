@@ -66,6 +66,23 @@
   <message name="IDS_SETTINGS_BRAVE_ACCOUNT_MORE_ACTIONS_BUTTON_LABEL" desc="Tooltip text for the button that shows a menu with more account actions when clicked" formatter_data="webui=BraveAccountSettings">
     More actions
   </message>
+  <if expr="is_android or is_ios">
+    <message name="IDS_SETTINGS_BRAVE_ACCOUNT_ACCOUNT_DETAILS_TITLE" desc="Title of the section showing the details of the logged-in Brave Account" formatter_data="webui=BraveAccountSettings">
+      Account details
+    </message>
+    <message name="IDS_SETTINGS_BRAVE_ACCOUNT_ACCOUNT_DETAILS_DESCRIPTION" desc="Description of the section showing the details of the logged-in Brave Account" formatter_data="webui=BraveAccountSettings">
+      Personal information about your Brave account.
+    </message>
+    <message name="IDS_SETTINGS_BRAVE_ACCOUNT_EMAIL_ADDRESS_LABEL" desc="Label for the card showing the email address of the logged-in Brave Account" formatter_data="webui=BraveAccountSettings">
+      Email address
+    </message>
+    <message name="IDS_SETTINGS_BRAVE_ACCOUNT_PASSWORD_LABEL" desc="Label for the card showing the password of the logged-in Brave Account" formatter_data="webui=BraveAccountSettings">
+      Password
+    </message>
+    <message name="IDS_SETTINGS_BRAVE_ACCOUNT_CHANGE_BUTTON_LABEL" desc="Label for the button on the password card that starts the password change process when clicked" formatter_data="webui=BraveAccountSettings">
+      Change
+    </message>
+  </if>
 
   <!-- 'Entry' dialog: -->
   <message name="IDS_BRAVE_ACCOUNT_ENTRY_DIALOG_TITLE" desc="Title for the dialog where the user can choose to create a Brave Account, or sign in" formatter_data="webui=BraveAccount">
@@ -169,7 +186,7 @@
   <message name="IDS_BRAVE_ACCOUNT_CONFIRM_CODE_BUTTON_LABEL" desc="Label for the button that submits the OTP code" formatter_data="webui=BraveAccount">
     Confirm code
   </message>
-  <message name="IDS_BRAVE_ACCOUNT_RESEND_EMAIL_CODE_BUTTON_LABEL" desc="Label for the button that resends the OTP code via email" formatter_data="webui=BraveAccount">
+  <message name="IDS_BRAVE_ACCOUNT_RESEND_EMAIL_CODE_BUTTON_LABEL" desc="Label for the button that resends the OTP code via email" formatter_data="webui=BraveAccount,BraveAccountSettings">
     Resend email code
   </message>
 

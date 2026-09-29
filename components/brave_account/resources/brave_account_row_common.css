@@ -10,14 +10,31 @@
 :host {
   display: flex;
   flex-direction: column;
+
+<if expr="is_android or is_ios">
+  @media (min-width: 500px) {
+    box-sizing: border-box;
+    margin: 0 auto;
+    width: 500px;
+  }
+</if>
 }
 
 .first-row {
-  align-items: center;
   display: flex;
-  gap: var(--leo-spacing-xl);
   min-height: 82px;
+
+<if expr="not is_android and not is_ios">
+  align-items: center;
+  gap: var(--leo-spacing-xl);
   padding: 0 var(--leo-spacing-2xl);
+</if>
+<if expr="is_android or is_ios">
+  align-items: stretch;
+  flex-direction: column;
+  gap: var(--leo-spacing-2xl);
+  padding: var(--leo-spacing-2xl);
+</if>
 
   > leo-icon {
     --leo-icon-size: var(--leo-icon-m);
@@ -28,16 +45,35 @@
     flex: auto;
     flex-direction: column;
     min-width: 0;
+
+<if expr="not is_android and not is_ios">
     padding: var(--leo-spacing-l) 0;
+</if>
+<if expr="is_android or is_ios">
+    gap: var(--leo-spacing-m);
+    padding: 0;
+</if>
 
     .title {
       color: var(--leo-color-text-primary);
+
+<if expr="not is_android and not is_ios">
       font: var(--leo-font-default-semibold);
+</if>
+<if expr="is_android or is_ios">
+      font: var(--leo-font-heading-h4);
+</if>
     }
 
     .description {
       color: var(--leo-color-text-secondary);
+
+<if expr="not is_android and not is_ios">
       font: var(--leo-font-small-regular);
+</if>
+<if expr="is_android or is_ios">
+      font: var(--leo-font-default-regular);
+</if>
 
       leo-link {
         /* Leo defaults visited links to pink; keep the link color stable. */
@@ -48,11 +84,19 @@
 }
 
 .second-row {
-  align-items: flex-start;
-  border-top: 1px solid var(--leo-color-divider-subtle);
   display: flex;
   gap: var(--leo-spacing-m);
+
+<if expr="not is_android and not is_ios">
+  align-items: flex-start;
+  border-top: 1px solid var(--leo-color-divider-subtle);
   padding: var(--leo-spacing-xl);
+</if>
+<if expr="is_android or is_ios">
+  align-items: stretch;
+  flex-direction: column;
+  padding: 0 var(--leo-spacing-2xl) var(--leo-spacing-2xl);
+</if>
 
   .cancel-verification-button {
     --leo-button-color: var(--leo-color-systemfeedback-error-text);
