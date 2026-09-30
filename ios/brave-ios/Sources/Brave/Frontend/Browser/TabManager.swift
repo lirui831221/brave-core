@@ -1342,20 +1342,20 @@ class TabManager: NSObject {
       // To avoid db problems, we first retrieve fresh tabs(on main thread context)
       // then delete old tabs(background thread context)
       savedTabs = SessionTab.all(noOlderThan: autocloseTime)
+      let closedTabs = SessionTab.deleteAll(olderThan: autocloseTime)
+
       // Auto closed tabs never go through `removeTab`, so sites set to Shred when
       // their last tab closes need to be Shred here.
       let remainingDomains = Set(savedTabs.compactMap { $0.url?.urlToShred?.baseDomain })
-      let urlsToShred = SessionTab.all(olderThan: autocloseTime).compactMap {
-        (sessionTab) -> URL? in
-        guard !sessionTab.isPrivate,
-          let url = sessionTab.url?.urlToShred,
+      let urlsToShred = closedTabs.compactMap { (closedTab) -> URL? in
+        guard !closedTab.isPrivate,
+          let url = closedTab.url.urlToShred,
           let baseDomain = url.baseDomain,
           !remainingDomains.contains(baseDomain),
-          shredLevel(url, sessionTab.isPrivate) == .whenSiteClosed
+          shredLevel(url, closedTab.isPrivate) == .whenSiteClosed
         else { return nil }
         return url
       }
-      SessionTab.deleteAll(olderThan: autocloseTime)
       if FeatureList.kBraveShredFeature.enabled, !urlsToShred.isEmpty {
         Task { await forgetData(for: urlsToShred) }
       }

@@ -125,18 +125,6 @@ extension SessionTab {
     return all(where: predicate, sortDescriptors: sortDescriptors) ?? []
   }
 
-  public static func all(olderThan timeInterval: TimeInterval) -> [SessionTab] {
-    let lastUpdatedKeyPath = #keyPath(SessionTab.lastUpdated)
-    let date = Date().advanced(by: -timeInterval) as NSDate
-
-    let sortDescriptors = [NSSortDescriptor(key: #keyPath(SessionTab.index), ascending: true)]
-    let predicate = NSPredicate(
-      format: "\(lastUpdatedKeyPath) != nil AND \(lastUpdatedKeyPath) < %@",
-      date
-    )
-    return all(where: predicate, sortDescriptors: sortDescriptors) ?? []
-  }
-
   public static func delete(tabId: UUID) {
     DataController.perform { context in
       guard let sessionTab = SessionTab.from(tabId: tabId, in: context) else {
@@ -156,14 +144,41 @@ extension SessionTab {
     deleteAll(predicate: predicate, context: .new(inMemory: false))
   }
 
-  public static func deleteAll(olderThan timeInterval: TimeInterval) {
+  /// Deletes every tab last updated before `timeInterval` ago, returning the url and private
+  /// mode of each deleted tab.
+  ///
+  /// The returned values are fetched as a dictionary to avoid loading each tab's interaction
+  /// state and screenshot data.
+  @discardableResult
+  public static func deleteAll(
+    olderThan timeInterval: TimeInterval
+  ) -> [(url: URL, isPrivate: Bool)] {
     let lastUpdatedKeyPath = #keyPath(SessionTab.lastUpdated)
+    let urlKeyPath = #keyPath(SessionTab.url)
+    let isPrivateKeyPath = #keyPath(SessionTab.isPrivate)
     let date = Date().advanced(by: -timeInterval) as NSDate
     let predicate = NSPredicate(
       format: "\(lastUpdatedKeyPath) != nil AND \(lastUpdatedKeyPath) < %@",
       date
     )
+
+    let request = NSFetchRequest<NSDictionary>(entityName: String(describing: self))
+    request.resultType = .dictionaryResultType
+    request.propertiesToFetch = [urlKeyPath, isPrivateKeyPath]
+    request.predicate = predicate
+
+    var deletedTabs: [(url: URL, isPrivate: Bool)] = []
+    do {
+      deletedTabs = try DataController.viewContext.fetch(request).compactMap {
+        guard let url = $0[urlKeyPath] as? URL else { return nil }
+        return (url, $0[isPrivateKeyPath] as? Bool ?? false)
+      }
+    } catch {
+      Logger.module.error("Fetch error: \(error.localizedDescription, privacy: .public)")
+    }
+
     self.deleteAll(predicate: predicate)
+    return deletedTabs
   }
 
   /// Marks the specified tab as selected
