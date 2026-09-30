@@ -92,6 +92,7 @@ class ChromiumCheckoutApi(RecipeApi):
                         *,
                         chromium_src: str | Path | None = None,
                         ref: str | None = None,
+                        run_sync: bool = True,
                         run_hooks: bool = True,
                         git_deps_only: bool = False) -> Path:
         """Guarantee a Chromium checkout at *chromium_src*, optionally on *ref*.
@@ -106,6 +107,8 @@ class ChromiumCheckoutApi(RecipeApi):
             chromium_src: Path to the Chromium `src/` directory. Defaults to the
                 `path` module's `chromium_src`, the standard job layout.
             ref: Optional git ref (branch, tag, or commit) to check out.
+            run_sync: Whether `gclient sync` runs after the checkout (the
+                default). See `checkout_ref`.
             run_hooks: Whether the sync runs the DEPS hooks (the default). See
                 `checkout_ref`.
             git_deps_only: Sync only the git dependencies. See `checkout_ref`.
@@ -123,6 +126,7 @@ class ChromiumCheckoutApi(RecipeApi):
 
         self.checkout_ref(chromium_src,
                           ref,
+                          run_sync=run_sync,
                           run_hooks=run_hooks,
                           git_deps_only=git_deps_only)
         return chromium_src
@@ -150,6 +154,7 @@ class ChromiumCheckoutApi(RecipeApi):
                      ref: str | None = None,
                      *,
                      should_clone: bool = True,
+                     run_sync: bool = True,
                      run_hooks: bool = True,
                      git_deps_only: bool = False) -> None:
         """Ensure *chromium_src* is checked out at *ref*.
@@ -163,6 +168,10 @@ class ChromiumCheckoutApi(RecipeApi):
                 doesn't already hold a valid checkout (the default). Set to
                 False to require an existing checkout, raising instead of
                 cloning one.
+            run_sync: Whether `gclient sync` runs after *chromium_src* is
+                checked out (the default). Set to False to leave syncing
+                (DEPS dependencies and hooks) to the caller; *run_hooks* and
+                *git_deps_only* are then ignored.
             run_hooks: Whether the sync runs the DEPS hooks (the default).
             git_deps_only: Sync only the git dependencies, skipping the CIPD
                 packages and GCS objects DEPS.
@@ -288,6 +297,9 @@ class ChromiumCheckoutApi(RecipeApi):
                         cwd=chromium_src)
         else:
             # Already a valid checkout and no `ref` requested: nothing to do.
+            return
+
+        if not run_sync:
             return
 
         using_hermetic_win_toolchain = (run_hooks and self.m.platform.is_win

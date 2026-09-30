@@ -25,7 +25,8 @@ _TEST_COMMIT_HASH = 'ef35003457e93c278f911a334b06e4a5f8967e06'
 
 
 def RunSteps(api, properties):
-    api.chromium_checkout.ensure_checkout(ref=properties.chromium_ref)
+    api.chromium_checkout.ensure_checkout(ref=properties.chromium_ref,
+                                          run_sync=not properties.skip_sync)
     # Surface otherwise-internal hermetic-toolchain env as steps so a test can
     # assert `checkout_ref` set them on Windows.
     toolchain = api.env.get('DEPOT_TOOLS_WIN_TOOLCHAIN_BASE_URL')
@@ -116,6 +117,16 @@ def GenTests(api):
         api.post_process(post_process.MustRun, 'point origin at git cache'),
         api.post_process(post_process.MustRun, 'fetch tag'),
         api.post_process(post_process.MustRun, 'gclient sync'),
+        api.post_process(post_process.StatusSuccess),
+    )
+    # `run_sync=False` leaves `gclient sync` to the caller, even with a ref.
+    yield api.test(
+        'fresh tag no sync',
+        api.chromium_checkout.with_git_cache(),
+        api.chromium_checkout.git_cache_populated(),
+        api.properties(chromium_ref='151.0.7917.1', skip_sync=True),
+        api.post_process(post_process.MustRun, 'checkout tag'),
+        api.post_process(post_process.DoesNotRun, 'gclient sync'),
         api.post_process(post_process.StatusSuccess),
     )
     # No `ref` requested on a fresh checkout -> clone straight onto

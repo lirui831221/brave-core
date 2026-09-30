@@ -48,6 +48,7 @@ def GenTests(api):
     yield api.test(
         'win',
         api.platform.name('win'),
+        api.brave_core_checkout.with_git_cache(),
         api.brave_core_checkout.deployed('tools/cr'),
         api.properties(chromium_ref='150.0.7841.1'),
         api.post_process(post_process.MustRun, 'build windows toolchain'),
