@@ -12,6 +12,13 @@ import { BraveAccountSettingsStrings } from './brave_components_webui_strings.js
 import { DialogMode, VerificationIntent } from './brave_account.mojom-webui.js'
 import { showError, showSuccess } from './brave_account_shared.js'
 
+// <if expr="not is_android and not is_ios">
+export const ROW_BUTTON_SIZE = 'small'
+// </if>
+// <if expr="is_android or is_ios">
+export const ROW_BUTTON_SIZE = 'medium'
+// </if>
+
 // Shared by the logged-out and logged-in rows, which differ only in their
 // verification intent type (`Intent`) and how it is tagged into a
 // `VerificationIntent` (logged-out vs logged-in). `Intent` is the bare

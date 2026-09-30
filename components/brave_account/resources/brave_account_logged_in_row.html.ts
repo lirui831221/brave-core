@@ -8,6 +8,7 @@ import { html, nothing } from '//resources/lit/v3_0/lit.rollup.js'
 import { loadTimeData } from '//resources/js/load_time_data.js'
 
 import { BraveAccountLoggedInRowElement } from './brave_account_logged_in_row.js'
+import { ROW_BUTTON_SIZE } from './brave_account_row_base.js'
 import { BraveAccountSettingsStrings } from './brave_components_webui_strings.js'
 import { LoggedInVerificationIntent } from './brave_account.mojom-webui.js'
 
@@ -54,11 +55,11 @@ export function getHtml(this: BraveAccountLoggedInRowElement) {
           <leo-button
 <if expr="not is_android and not is_ios">
             kind="plain"
-            size="small"
 </if>
 <if expr="is_android or is_ios">
             kind="filled"
 </if>
+            size=${ROW_BUTTON_SIZE}
             @click=${this.openDialogInDefaultMode}
           >
             ${loadTimeData.getString(
@@ -72,6 +73,7 @@ export function getHtml(this: BraveAccountLoggedInRowElement) {
             ? nothing
             : html`<leo-button
                 kind="plain"
+                size=${ROW_BUTTON_SIZE}
                 ?isDisabled=${this.isResendingConfirmationEmail}
                 @click=${this.onResendConfirmationEmailLinkClicked}
               >
@@ -82,9 +84,7 @@ export function getHtml(this: BraveAccountLoggedInRowElement) {
 </if>
           <leo-button
             kind="plain"
-<if expr="not is_android and not is_ios">
-            size="small"
-</if>
+            size=${ROW_BUTTON_SIZE}
             class="cancel-verification-button"
             @click=${this.onCancelVerificationButtonClicked}
           >
@@ -93,90 +93,40 @@ export function getHtml(this: BraveAccountLoggedInRowElement) {
             )}
           </leo-button>
         </div>`
-    : html`<if expr="not is_android and not is_ios">
-        <div class="first-row">
-          <leo-icon name="social-brave-release-favicon-fullheight-color">
-          </leo-icon>
-          <div class="title-and-description">
-            <div class="title">
-              ${loadTimeData.getString(
-                BraveAccountSettingsStrings.BRAVE_ACCOUNT_TITLE,
-              )}
-            </div>
-            <div class="description">
-              <div id="email">${this.truncatedEmail}</div>
-            </div>
-          </div>
-          <leo-buttonmenu placement="bottom-end">
-            <leo-button
-              slot="anchor-content"
-              kind="plain-faint"
-              size="tiny"
-              title="${loadTimeData.getString(
-                BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_MORE_ACTIONS_BUTTON_LABEL,
-              )}"
-            >
-              <leo-icon name="more-vertical"></leo-icon>
-            </leo-button>
-            <leo-menu-item @click=${this.onChangePasswordButtonClicked}>
-              <leo-icon name="lock"></leo-icon>
-              ${loadTimeData.getString(
-                BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_CHANGE_PASSWORD_BUTTON_LABEL,
-              )}
-            </leo-menu-item>
-            <leo-menu-item @click=${this.onLogOutButtonClicked}>
-              <leo-icon name="outside"></leo-icon>
-              ${loadTimeData.getString(
-                BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_LOG_OUT_BUTTON_LABEL,
-              )}
-            </leo-menu-item>
-            <leo-menu-item
-              class="delete-account-menu-item"
-              @click=${this.openDialogInAccountDeletionMode}
-            >
-              <leo-icon name="trash"></leo-icon>
-              ${loadTimeData.getString(
-                BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_DELETE_ACCOUNT_BUTTON_LABEL,
-              )}
-            </leo-menu-item>
-          </leo-buttonmenu>
-        </div>
-      </if>
-      <if expr="is_android or is_ios">
-        <div class="first-row">
-          <div class="title-and-description">
-            <div class="title">
-              ${loadTimeData.getString(
-                BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_ACCOUNT_DETAILS_TITLE,
-              )}
-            </div>
-            <div class="description">
-              ${loadTimeData.getString(
-                BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_ACCOUNT_DETAILS_DESCRIPTION,
-              )}
-            </div>
-          </div>
-        </div>
-        <div class="second-row">
-          <div class="card">
+    : html`<if expr="is_android or is_ios">
+          <div class="first-row">
             <div class="title-and-description">
               <div class="title">
                 ${loadTimeData.getString(
-                  BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_EMAIL_ADDRESS_LABEL,
+                  BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_ACCOUNT_DETAILS_TITLE,
                 )}
               </div>
               <div class="description">
-                <div id="email">${this.truncatedEmail}</div>
+                ${loadTimeData.getString(
+                  BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_ACCOUNT_DETAILS_DESCRIPTION,
+                )}
               </div>
             </div>
           </div>
-          <div class="card">
-            <div class="title-and-description">
-              <div class="title">
-                ${loadTimeData.getString(
-                  BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_PASSWORD_LABEL,
-                )}
-              </div>
+        </if>
+        <div class="details">
+          <div class="detail">
+            <div class="label">
+              ${loadTimeData.getString(
+                BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_EMAIL_ADDRESS_LABEL,
+              )}
+            </div>
+            <leo-input
+              id="email"
+              disabled
+              .value=${this.truncatedEmail}
+            ></leo-input>
+          </div>
+          <div class="detail">
+            <div class="label">
+              ${loadTimeData.getString(
+                BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_PASSWORD_LABEL,
+              )}
             </div>
             <leo-button
               kind="outline"
@@ -188,24 +138,28 @@ export function getHtml(this: BraveAccountLoggedInRowElement) {
               )}
             </leo-button>
           </div>
-          <leo-button
-            kind="plain"
-            class="log-out-button"
-            @click=${this.onLogOutButtonClicked}
-          >
-            ${loadTimeData.getString(
-              BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_LOG_OUT_BUTTON_LABEL,
-            )}
-          </leo-button>
-          <leo-button
-            kind="plain"
-            class="delete-account-button"
-            @click=${this.openDialogInAccountDeletionMode}
-          >
-            ${loadTimeData.getString(
-              BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_DELETE_ACCOUNT_BUTTON_LABEL,
-            )}
-          </leo-button>
-        </div>
-      </if>`}`
+          <div class="account-actions">
+            <leo-button
+              kind="plain"
+              size=${ROW_BUTTON_SIZE}
+              @click=${this.onLogOutButtonClicked}
+            >
+              <leo-icon slot="icon-before" name="outside"></leo-icon>
+              ${loadTimeData.getString(
+                BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_LOG_OUT_BUTTON_LABEL,
+              )}
+            </leo-button>
+            <leo-button
+              kind="plain"
+              size=${ROW_BUTTON_SIZE}
+              class="delete-account-button"
+              @click=${this.openDialogInAccountDeletionMode}
+            >
+              <leo-icon slot="icon-before" name="trash"></leo-icon>
+              ${loadTimeData.getString(
+                BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_DELETE_ACCOUNT_BUTTON_LABEL,
+              )}
+            </leo-button>
+          </div>
+        </div>`}`
 }

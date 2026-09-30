@@ -7,6 +7,7 @@ import { html, nothing } from '//resources/lit/v3_0/lit.rollup.js'
 import { loadTimeData } from '//resources/js/load_time_data.js'
 
 import { BraveAccountLoggedOutRowElement } from './brave_account_logged_out_row.js'
+import { ROW_BUTTON_SIZE } from './brave_account_row_base.js'
 import { BraveAccountSettingsStrings } from './brave_components_webui_strings.js'
 import { LoggedOutVerificationIntent } from './brave_account.mojom-webui.js'
 
@@ -46,11 +47,11 @@ export function getHtml(this: BraveAccountLoggedOutRowElement) {
           <leo-button
 <if expr="not is_android and not is_ios">
             kind="plain"
-            size="small"
 </if>
 <if expr="is_android or is_ios">
             kind="filled"
 </if>
+            size=${ROW_BUTTON_SIZE}
             @click=${this.openDialogInDefaultMode}
           >
             ${loadTimeData.getString(
@@ -68,6 +69,7 @@ export function getHtml(this: BraveAccountLoggedOutRowElement) {
             ? nothing
             : html`<leo-button
                 kind="plain"
+                size=${ROW_BUTTON_SIZE}
                 ?isDisabled=${this.isResendingConfirmationEmail}
                 @click=${this.onResendConfirmationEmailLinkClicked}
               >
@@ -78,9 +80,7 @@ export function getHtml(this: BraveAccountLoggedOutRowElement) {
 </if>
           <leo-button
             kind="plain"
-<if expr="not is_android and not is_ios">
-            size="small"
-</if>
+            size=${ROW_BUTTON_SIZE}
             class="cancel-verification-button"
             @click=${this.onCancelVerificationButtonClicked}
           >
@@ -120,9 +120,7 @@ export function getHtml(this: BraveAccountLoggedOutRowElement) {
         </div>
         <leo-button
           kind="filled"
-<if expr="not is_android and not is_ios">
-          size="small"
-</if>
+          size=${ROW_BUTTON_SIZE}
           @click=${this.openDialogInDefaultMode}
         >
           ${loadTimeData.getString(

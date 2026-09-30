@@ -131,7 +131,9 @@ export class BraveAccountLoggedInRowElement extends BraveAccountRowBaseElement<
     const email = this.state.email
     if (!email) return
 
-    const availableWidth = emailEl.clientWidth
+    const availableWidth = (
+      emailEl.shadowRoot?.querySelector('input') ?? emailEl
+    ).clientWidth
     if (!availableWidth) {
       this.truncatedEmail = email
       return
