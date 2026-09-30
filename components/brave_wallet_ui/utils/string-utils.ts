@@ -98,13 +98,111 @@ export const isHttpsUrl = (url: string) => {
   return url.startsWith('https://')
 }
 
-export function hasUnicode(str: string) {
-  for (let i = 0; i < str.length; i++) {
-    if (str.charCodeAt(i) > 127) {
-      return true
+export type HiddenSignMessageCharacter = 'nullByte' | 'newline' | 'nonAscii'
+
+/**
+ * Characters that can make a sign-message preview disagree with the bytes
+ * being signed: null bytes, newline bytes, and non-ASCII characters.
+ */
+export function getHiddenSignMessageCharacters(
+  ...values: Array<string | undefined>
+): HiddenSignMessageCharacter[] {
+  let nullByte = false
+  let newline = false
+  let nonAscii = false
+  for (const value of values) {
+    if (!value) {
+      continue
+    }
+    for (let i = 0; i < value.length; i++) {
+      const charCode = value.charCodeAt(i)
+      if (charCode === 0) {
+        nullByte = true
+      } else if (charCode === 0x0a) {
+        newline = true
+      } else if (charCode > 127) {
+        nonAscii = true
+      }
     }
   }
-  return false
+
+  const found: HiddenSignMessageCharacter[] = []
+  if (nullByte) {
+    found.push('nullByte')
+  }
+  if (newline) {
+    found.push('newline')
+  }
+  if (nonAscii) {
+    found.push('nonAscii')
+  }
+  return found
+}
+
+export function hasUnicode(str: string) {
+  return getHiddenSignMessageCharacters(str).length > 0
+}
+
+function collectJsonStrings(value: unknown, out: string[]) {
+  if (typeof value === 'string') {
+    out.push(value)
+    return
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectJsonStrings(item, out)
+    }
+    return
+  }
+  if (value && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value)) {
+      out.push(key)
+      collectJsonStrings(item, out)
+    }
+  }
+}
+
+/**
+ * EIP-712 domain and message are re-encoded as JSON before display. That
+ * encoding writes a null as \u0000 and a newline as \n, so a raw-byte scan
+ * of the JSON text misses them. Scan the decoded values as well.
+ */
+export function getTypedDataHiddenSignMessageCharacters(
+  ...jsonValues: Array<string | undefined>
+) {
+  const messages: string[] = []
+  for (const json of jsonValues) {
+    if (!json) {
+      continue
+    }
+    messages.push(json)
+    try {
+      collectJsonStrings(JSON.parse(json), messages)
+    } catch {
+      // Not JSON. The raw text was already included above.
+    }
+  }
+  return getHiddenSignMessageCharacters(...messages)
+}
+
+const hiddenSignMessageCharacterWarnings: Record<string, string> = {
+  nullByte: S.BRAVE_WALLET_SIGN_MESSAGE_NULL_BYTES_WARNING,
+  newline: S.BRAVE_WALLET_SIGN_MESSAGE_NEWLINE_CHARACTERS_WARNING,
+  nonAscii: S.BRAVE_WALLET_NON_ASCII_CHARACTERS_IN_MESSAGE_WARNING,
+  'nullByte,newline':
+    S.BRAVE_WALLET_SIGN_MESSAGE_NULL_BYTES_AND_NEWLINES_WARNING,
+  'nullByte,nonAscii':
+    S.BRAVE_WALLET_SIGN_MESSAGE_NULL_BYTES_AND_NON_ASCII_WARNING,
+  'newline,nonAscii':
+    S.BRAVE_WALLET_SIGN_MESSAGE_NEWLINES_AND_NON_ASCII_WARNING,
+  'nullByte,newline,nonAscii':
+    S.BRAVE_WALLET_SIGN_MESSAGE_NULL_BYTES_NEWLINES_AND_NON_ASCII_WARNING,
+}
+
+export function getSignMessageHiddenCharacterWarning(
+  characters: HiddenSignMessageCharacter[],
+) {
+  return hiddenSignMessageCharacterWarnings[characters.join(',')]
 }
 
 export function padWithLeadingZeros(string: string) {
@@ -115,14 +213,60 @@ export function unicodeCharEscape(charCode: number) {
   return '\\u' + padWithLeadingZeros(charCode.toString(16))
 }
 
-export function unicodeEscape(string: string) {
-  return string
+export function unicodeEscape(value: string) {
+  return value
     .split('')
-    .map(function (char: string) {
+    .map((char: string) => {
       const charCode = char.charCodeAt(0)
+      if (charCode === 0) {
+        return '\\0'
+      }
+      // Keep the line break, and prefix a visible marker so a newline byte
+      // is not mistaken for ordinary text wrapping.
+      if (charCode === 0x0a) {
+        return '\\n\n'
+      }
       return charCode > 127 ? unicodeCharEscape(charCode) : char
     })
     .join('')
+}
+
+/** Display-only. Callers must still sign the original message bytes. */
+export function formatSignMessageForDisplay(
+  message: string,
+  showFormatted: boolean,
+) {
+  return showFormatted ? unicodeEscape(message) : message
+}
+
+/**
+ * Typed-data JSON already writes a null as \u0000 and a newline as \n. Decode
+ * each string, then apply the same ASCII markers used for other sign requests,
+ * so the formatted view is distinct from that JSON text.
+ */
+export function formatTypedDataForDisplay(
+  message: string,
+  showFormatted: boolean,
+) {
+  if (!showFormatted) {
+    return message
+  }
+  try {
+    JSON.parse(message)
+  } catch {
+    return unicodeEscape(message)
+  }
+  return message.replace(/"(?:\\.|[^"\\])*"/g, (literal) => {
+    try {
+      const decoded = JSON.parse(literal)
+      if (typeof decoded !== 'string') {
+        return literal
+      }
+      return '"' + unicodeEscape(decoded).replace(/"/g, '\\"') + '"'
+    } catch {
+      return literal
+    }
+  })
 }
 
 /** This prevents there from being more than one space between words. */
