@@ -153,8 +153,7 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
     if (playlist::IsPlaylistAllowed(browser_view->GetProfile()->GetPrefs())) {
       playlist_side_panel_coordinator_ =
           std::make_unique<PlaylistSidePanelCoordinator>(
-              browser_view->browser(), sidebar_controller_.get(),
-              browser_view->GetProfile());
+              browser_view->browser(), browser_view->GetProfile());
     }
 #endif  // BUILDFLAG(ENABLE_PLAYLIST)
   }
