@@ -45,7 +45,7 @@ export function getHtml(this: BraveAccountLoggedInRowElement) {
                       >${this.getVerificationDescription().afterLink}
                     </if>
                     <if expr="is_android or is_ios">
-                      ${this.getVerificationDescription().beforeLink}${this.getVerificationDescription().linkLabel}${this.getVerificationDescription().afterLink}
+                      ${this.verificationDescription}
                     </if>`}
             </div>
           </div>
@@ -143,7 +143,7 @@ export function getHtml(this: BraveAccountLoggedInRowElement) {
         </div>
       </if>
       <if expr="is_android or is_ios">
-        <div class="account-details">
+        <div class="first-row">
           <div class="title-and-description">
             <div class="title">
               ${loadTimeData.getString(
@@ -156,6 +156,8 @@ export function getHtml(this: BraveAccountLoggedInRowElement) {
               )}
             </div>
           </div>
+        </div>
+        <div class="second-row">
           <div class="card">
             <div class="title-and-description">
               <div class="title">
@@ -186,25 +188,24 @@ export function getHtml(this: BraveAccountLoggedInRowElement) {
               )}
             </leo-button>
           </div>
-          <div class="account-actions">
-            <leo-button
-              kind="plain"
-              @click=${this.onLogOutButtonClicked}
-            >
-              ${loadTimeData.getString(
-                BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_LOG_OUT_BUTTON_LABEL,
-              )}
-            </leo-button>
-            <leo-button
-              kind="plain"
-              class="delete-account-button"
-              @click=${this.openDialogInAccountDeletionMode}
-            >
-              ${loadTimeData.getString(
-                BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_DELETE_ACCOUNT_BUTTON_LABEL,
-              )}
-            </leo-button>
-          </div>
+          <leo-button
+            kind="plain"
+            class="log-out-button"
+            @click=${this.onLogOutButtonClicked}
+          >
+            ${loadTimeData.getString(
+              BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_LOG_OUT_BUTTON_LABEL,
+            )}
+          </leo-button>
+          <leo-button
+            kind="plain"
+            class="delete-account-button"
+            @click=${this.openDialogInAccountDeletionMode}
+          >
+            ${loadTimeData.getString(
+              BraveAccountSettingsStrings.SETTINGS_BRAVE_ACCOUNT_DELETE_ACCOUNT_BUTTON_LABEL,
+            )}
+          </leo-button>
         </div>
       </if>`}`
 }

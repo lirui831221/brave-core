@@ -37,7 +37,7 @@ export function getHtml(this: BraveAccountLoggedOutRowElement) {
                       >${this.getVerificationDescription().afterLink}
                     </if>
                     <if expr="is_android or is_ios">
-                      ${this.getVerificationDescription().beforeLink}${this.getVerificationDescription().linkLabel}${this.getVerificationDescription().afterLink}
+                      ${this.verificationDescription}
                     </if>`}
             </div>
           </div>

@@ -69,6 +69,14 @@ export abstract class BraveAccountRowBaseElement<
     }
   }
 
+  // <if expr="is_android or is_ios">
+  protected get verificationDescription() {
+    const { beforeLink, linkLabel, afterLink } =
+      this.getVerificationDescription()
+    return beforeLink + linkLabel + afterLink
+  }
+  // </if>
+
   protected async onResendConfirmationEmailLinkClicked() {
     if (this.isResendingConfirmationEmail) return
     this.isResendingConfirmationEmail = true
