@@ -14,7 +14,7 @@ import { spawnSync } from 'node:child_process'
 import { checkoutChromiumRef } from './chromiumFetch.ts'
 import config from './config.ts'
 import * as Log from './log.ts'
-import util from './util.js'
+import util from './util.ts'
 
 jest.mock('./log.ts', () => ({
   warn: jest.fn(),
