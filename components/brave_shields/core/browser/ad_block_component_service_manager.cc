@@ -121,6 +121,13 @@ class ComponentProvidersGate : public AdBlockFiltersProvider {
     initialized_ = true;
     NotifyObservers(engine_is_default_);
   }
+  void AllowFallback() {
+    if (initialized_ || fallback_allowed_) {
+      return;
+    }
+    fallback_allowed_ = true;
+    NotifyObservers(engine_is_default_);
+  }
   void LoadFilterSet(
       base::OnceCallback<
           void(base::OnceCallback<void(rust::Box<adblock::FilterSet>*)>)> cb)
@@ -131,10 +138,13 @@ class ComponentProvidersGate : public AdBlockFiltersProvider {
   std::string GetNameForDebugging() override {
     return "ComponentProvidersGate";
   }
-  bool IsInitialized() const override { return initialized_; }
+  bool IsInitialized() const override {
+    return initialized_ || fallback_allowed_;
+  }
 
  private:
   bool initialized_ = false;
+  bool fallback_allowed_ = false;
 };
 
 AdBlockComponentServiceManager::AdBlockComponentServiceManager(
@@ -469,6 +479,7 @@ void AdBlockComponentServiceManager::SetFilterListCatalog(
     std::vector<FilterListCatalogEntry> catalog) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   filter_list_catalog_ = std::move(catalog);
+  filter_list_catalog_loaded_ = true;
   LoadComponentFiltersProviders();
 
   list_p3a_->OnFilterListCatalogLoaded(filter_list_catalog_, locale_);
@@ -478,6 +489,20 @@ const std::vector<FilterListCatalogEntry>&
 AdBlockComponentServiceManager::GetFilterListCatalog() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return filter_list_catalog_;
+}
+
+bool AdBlockComponentServiceManager::IsFilterListCatalogLoaded() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return filter_list_catalog_loaded_;
+}
+
+void AdBlockComponentServiceManager::AllowFilterSetLoadWithoutCatalog(
+    bool is_default_engine) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  auto* gate = is_default_engine ? default_gate_.get() : additional_gate_.get();
+  if (gate) {
+    gate->AllowFallback();
+  }
 }
 
 base::ListValue AdBlockComponentServiceManager::GetRegionalLists() {

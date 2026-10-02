@@ -1,0 +1,52 @@
+{
+  "preparedAt": "2026-10-02T15:13:01.911355+08:00",
+  "repository": "lirui831221/brave-core",
+  "releaseTitle": "mac brave 1.0",
+  "tag": "mac-brave-1.0",
+  "branch": "codex/mac-brave-1.0",
+  "upstreamVersions": {
+    "brave": "1.98.0",
+    "chromium": "155.0.8059.16",
+    "bundleVersion": "155.1.98.0"
+  },
+  "baseHeads": {
+    "braveCore": "26101b8ddd687f0abd974337742fc3f4233253ae",
+    "chromium": "eb81d1e9a7da2b5edae9a034166cbf1640ab8c55"
+  },
+  "braveCoreChangedFiles": [
+    "components/brave_shields/content/browser/ad_block_service.cc",
+    "components/brave_shields/content/browser/ad_block_service.h",
+    "components/brave_shields/content/test/ad_block_service_unittest.cc",
+    "components/brave_shields/core/browser/ad_block_component_service_manager.cc",
+    "components/brave_shields/core/browser/ad_block_component_service_manager.h"
+  ],
+  "chromiumTrackedChanges": 1719,
+  "chromiumPatchAttribution": "Partial; includes Brave standard patches and other tracked worktree changes; not fully attributed.",
+  "defaultProfileProductDir": "BraveLocalBuild/Brave-Browser",
+  "appFiles": [
+    {
+      "path": "Contents/MacOS/Brave Browser",
+      "bytes": 51952,
+      "sha256": "9f492918492334d36bf3378b4841761c4231ad7ae771f1cc02abb91d9759b006"
+    },
+    {
+      "path": "Contents/Info.plist",
+      "bytes": 18668,
+      "sha256": "a40d1382b5b7398cf14856a6c636c5f1e3db60062ae98ebc6a8076125c3302cd"
+    },
+    {
+      "path": "Contents/Frameworks/Brave Browser Framework.framework/Versions/155.1.98.0/Brave Browser Framework",
+      "bytes": 297997552,
+      "sha256": "1d6b34099541f8fc95823420692faa374c5c77aa16b068f1ecd7309405b08ecf"
+    }
+  ],
+  "sourcePatchSha256": "32b4c6375f6d96bce2a588c06d47c591a43c02248d33f595f517e1128b20e572",
+  "chromiumPatchSha256": "6a932725a28222a669f64d09ad9b28c1214cfdf4cffc06da82e483c04bd480ac",
+  "privateDataExcluded": [
+    "user profiles",
+    "personal settings and history",
+    "keychain contents",
+    "build environment files",
+    "raw runtime logs"
+  ]
+}

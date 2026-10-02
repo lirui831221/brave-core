@@ -49,6 +49,7 @@ AdBlockService::SourceProviderObserver::SourceProviderObserver(
     OnResourcesLoadedCallback on_resources_loaded,
     AdBlockResourceProvider* resource_provider,
     AdBlockFiltersProviderManager* filters_provider_manager,
+    AdBlockComponentServiceManager* component_service_manager,
     bool engine_is_default,
     bool debug_mode,
     scoped_refptr<base::SequencedTaskRunner> task_runner)
@@ -57,7 +58,8 @@ AdBlockService::SourceProviderObserver::SourceProviderObserver(
       debug_mode_(debug_mode),
       task_runner_(std::move(task_runner)),
       resource_provider_(resource_provider),
-      filters_provider_manager_(filters_provider_manager) {
+      filters_provider_manager_(filters_provider_manager),
+      component_service_manager_(component_service_manager) {
   filters_provider_manager_->AddObserver(this);
   filters_provider_manager_->MaybeNotifyObserver(*this, engine_is_default_);
 }
@@ -72,14 +74,19 @@ void AdBlockService::SourceProviderObserver::OnChanged(bool is_default_engine) {
     return;
   }
 
+  // A delayed load must not replace a newer provider snapshot.
+  weak_factory_.InvalidateWeakPtrs();
+  const bool can_cache =
+      component_service_manager_->IsFilterListCatalogLoaded();
   auto on_loaded_cb =
       base::BindOnce(&AdBlockService::SourceProviderObserver::OnFilterSetLoaded,
-                     weak_factory_.GetWeakPtr());
+                     weak_factory_.GetWeakPtr(), can_cache);
   filters_provider_manager_->LoadFilterSetForEngine(is_default_engine,
                                                     std::move(on_loaded_cb));
 }
 
 void AdBlockService::SourceProviderObserver::OnFilterSetLoaded(
+    bool can_cache,
     base::OnceCallback<void(rust::Box<adblock::FilterSet>*)> cb) {
   task_runner_->PostTaskAndReplyWithResult(
       FROM_HERE,
@@ -94,45 +101,49 @@ void AdBlockService::SourceProviderObserver::OnFilterSetLoaded(
           debug_mode_, std::move(cb)),
       base::BindOnce(
           &AdBlockService::SourceProviderObserver::OnFilterSetCreated,
-          weak_factory_.GetWeakPtr()));
+          weak_factory_.GetWeakPtr(), can_cache));
 }
 
 void AdBlockService::SourceProviderObserver::LoadResources(
+    bool can_cache,
     std::unique_ptr<rust::Box<adblock::FilterSet>> filter_set) {
   // multiple AddObserver calls are ignored
   resource_provider_->AddObserver(this);
   resource_provider_->LoadResources(
       base::BindOnce(&SourceProviderObserver::OnAllLoaded,
-                     weak_factory_.GetWeakPtr(), std::move(filter_set)));
+                     weak_factory_.GetWeakPtr(), can_cache,
+                     std::move(filter_set)));
 }
 
 void AdBlockService::SourceProviderObserver::OnDATFileRead(
     DATFileDataBuffer dat) {
   // Load the cached DAT immediately with empty resources so filter rules are
   // available for network blocking without waiting for the resource component.
-  on_resources_loaded_.Run(engine_is_default_, std::move(dat), nullptr,
+  on_resources_loaded_.Run(engine_is_default_, false, std::move(dat), nullptr,
                            adblock::new_empty_resource_storage());
   // Kick off resource loading separately — when resources arrive,
   // OnAllLoaded will call UseResources to update them.
-  LoadResources(nullptr);
+  LoadResources(false, nullptr);
 }
 
 void AdBlockService::SourceProviderObserver::OnFilterSetCreated(
+    bool can_cache,
     std::unique_ptr<rust::Box<adblock::FilterSet>> filter_set) {
   TRACE_EVENT("brave.adblock", "OnFilterSetCreated");
-  LoadResources(std::move(filter_set));
+  LoadResources(can_cache, std::move(filter_set));
 }
 
 void AdBlockService::SourceProviderObserver::OnResourcesLoaded(
     AdblockResourceStorageBox storage) {
-  on_resources_loaded_.Run(engine_is_default_, std::nullopt, nullptr,
+  on_resources_loaded_.Run(engine_is_default_, false, std::nullopt, nullptr,
                            std::move(storage));
 }
 
 void AdBlockService::SourceProviderObserver::OnAllLoaded(
+    bool can_cache,
     std::unique_ptr<rust::Box<adblock::FilterSet>> filter_set,
     AdblockResourceStorageBox storage) {
-  on_resources_loaded_.Run(engine_is_default_, std::nullopt,
+  on_resources_loaded_.Run(engine_is_default_, can_cache, std::nullopt,
                            std::move(filter_set), std::move(storage));
 }
 
@@ -263,17 +274,20 @@ AdBlockService::AdBlockService(
 
   default_service_observer_ = std::make_unique<SourceProviderObserver>(
       make_on_resources_loaded_callback, resource_provider_.get(),
-      filters_provider_manager_.get(), true, debug_mode, task_runner_);
+      filters_provider_manager_.get(), component_service_manager_.get(), true,
+      debug_mode, task_runner_);
   additional_filters_service_observer_ =
       std::make_unique<SourceProviderObserver>(
           make_on_resources_loaded_callback, resource_provider_.get(),
-          filters_provider_manager_.get(), false, debug_mode, task_runner_);
+          filters_provider_manager_.get(), component_service_manager_.get(),
+          false, debug_mode, task_runner_);
 }
 
 AdBlockService::~AdBlockService() = default;
 
 void AdBlockService::OnResourcesLoaded(
     bool is_default_engine,
+    bool can_cache,
     std::optional<DATFileDataBuffer> dat,
     std::unique_ptr<rust::Box<adblock::FilterSet>> filter_set,
     AdblockResourceStorageBox storage) {
@@ -293,8 +307,11 @@ void AdBlockService::OnResourcesLoaded(
         base::BindOnce(&AdBlockService::OnDATLoaded, weak_factory_.GetWeakPtr(),
                        is_default_engine));
   } else {
+    // A pre-catalog fallback only contains local filters. Do not persist it as
+    // a complete engine that would suppress filter loading on the next start.
     bool should_cache =
-        base::FeatureList::IsEnabled(features::kAdblockDATCache);
+        base::FeatureList::IsEnabled(features::kAdblockDATCache) &&
+        can_cache;
     AsyncCallAndReplyWithResult(
         base::BindOnce(
             [](bool is_default, bool cache,
@@ -331,6 +348,8 @@ void AdBlockService::OnDATLoaded(bool is_default_engine, bool success) {
   }
   // If the cached DAT failed to load, fall back to loading from filter lists.
   if (!success) {
+    component_service_manager_->AllowFilterSetLoadWithoutCatalog(
+        is_default_engine);
     if (is_default_engine) {
       filters_provider_manager_->ForceNotifyObserver(*default_service_observer_,
                                                      true);

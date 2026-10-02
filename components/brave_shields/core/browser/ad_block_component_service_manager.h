@@ -58,6 +58,11 @@ class AdBlockComponentServiceManager
 
   void SetFilterListCatalog(std::vector<FilterListCatalogEntry> catalog);
   const std::vector<FilterListCatalogEntry>& GetFilterListCatalog();
+  bool IsFilterListCatalogLoaded() const;
+
+  // Allow an engine without a usable DAT cache to load local filters while
+  // waiting for the catalog. Engines restored from DAT must keep waiting.
+  void AllowFilterSetLoadWithoutCatalog(bool is_default_engine);
 
   // Get the filter set path for a given filter list.
   // If the filter list is not available, an empty path is returned.
@@ -102,6 +107,7 @@ class AdBlockComponentServiceManager
 
   std::vector<FilterListCatalogEntry> filter_list_catalog_
       GUARDED_BY_CONTEXT(sequence_checker_);
+  bool filter_list_catalog_loaded_ GUARDED_BY_CONTEXT(sequence_checker_) = false;
 
   raw_ptr<component_updater::ComponentUpdateService> component_update_service_
       GUARDED_BY_CONTEXT(sequence_checker_);

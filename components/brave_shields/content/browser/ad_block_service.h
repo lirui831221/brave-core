@@ -86,6 +86,7 @@ class AdBlockService {
     // If filter_set is non-null, calls Load; otherwise calls UseResources.
     using OnResourcesLoadedCallback = base::RepeatingCallback<void(
         bool,
+        bool,
         std::optional<DATFileDataBuffer>,
         std::unique_ptr<rust::Box<adblock::FilterSet>>,
         AdblockResourceStorageBox)>;
@@ -94,6 +95,7 @@ class AdBlockService {
         OnResourcesLoadedCallback on_resources_loaded,
         AdBlockResourceProvider* resource_provider,
         AdBlockFiltersProviderManager* filters_provider_manager,
+        AdBlockComponentServiceManager* component_service_manager,
         bool engine_is_default,
         bool debug_mode,
         scoped_refptr<base::SequencedTaskRunner> task_runner);
@@ -109,16 +111,20 @@ class AdBlockService {
 
    private:
     void LoadResources(
+        bool can_cache,
         std::unique_ptr<rust::Box<adblock::FilterSet>> filter_set);
     void OnFilterSetLoaded(
+        bool can_cache,
         base::OnceCallback<void(rust::Box<adblock::FilterSet>*)> cb);
     void OnFilterSetCreated(
+        bool can_cache,
         std::unique_ptr<rust::Box<adblock::FilterSet>> filter_set);
 
     // AdBlockResourceProvider::Observer
     void OnResourcesLoaded(AdblockResourceStorageBox storage) override;
 
-    void OnAllLoaded(std::unique_ptr<rust::Box<adblock::FilterSet>> filter_set,
+    void OnAllLoaded(bool can_cache,
+                     std::unique_ptr<rust::Box<adblock::FilterSet>> filter_set,
                      AdblockResourceStorageBox storage);
 
     OnResourcesLoadedCallback on_resources_loaded_;
@@ -131,6 +137,8 @@ class AdBlockService {
     raw_ptr<AdBlockResourceProvider> custom_resource_provider_ =
         nullptr;  // not owned
     raw_ptr<AdBlockFiltersProviderManager> filters_provider_manager_ =
+        nullptr;  // not owned
+    raw_ptr<AdBlockComponentServiceManager> component_service_manager_ =
         nullptr;  // not owned
 
     base::WeakPtrFactory<SourceProviderObserver> weak_factory_{this};
@@ -210,6 +218,7 @@ class AdBlockService {
 
   void OnResourcesLoaded(
       bool is_default_engine,
+      bool can_cache,
       std::optional<DATFileDataBuffer> dat,
       std::unique_ptr<rust::Box<adblock::FilterSet>> filter_set,
       AdblockResourceStorageBox storage);

@@ -1,0 +1,96 @@
+{
+  "checkedAt": "2026-10-02T15:15:54.690268+08:00",
+  "platform": {
+    "macOS": "27.0.1",
+    "architecture": "arm64",
+    "hardware": "Apple M1 Max"
+  },
+  "currentInstalledBuild": {
+    "defaultProfileOverride": false,
+    "keychain": "system",
+    "launches": [
+      {
+        "number": 1,
+        "httpHttps": [
+          {
+            "kind": "local",
+            "status": 200,
+            "pass": true,
+            "responseMs": 8
+          },
+          {
+            "kind": "https",
+            "status": 200,
+            "pass": true,
+            "responseMs": 467
+          }
+        ],
+        "keychainAvailable": true,
+        "gpuSandboxed": true,
+        "gpuCrashCount": 0
+      },
+      {
+        "number": 2,
+        "httpHttps": [
+          {
+            "kind": "local",
+            "status": 200,
+            "pass": true,
+            "responseMs": 14975
+          },
+          {
+            "kind": "https",
+            "status": 200,
+            "pass": true,
+            "responseMs": 7
+          }
+        ],
+        "keychainAvailable": true,
+        "gpuSandboxed": true,
+        "gpuCrashCount": 0
+      }
+    ],
+    "syntheticCookiePersisted": true,
+    "syntheticCookieRemoved": true,
+    "cookieDatabaseReadInThisStage": false,
+    "rendererGpuNetworkSandbox": {
+      "renderer": true,
+      "GPU": true,
+      "network.mojom.NetworkService": true
+    },
+    "normalWindowWithoutAutomationOrCdp": true,
+    "originalUserDataMigrated": false
+  },
+  "package": {
+    "fileCount": 969,
+    "symlinkCount": 15,
+    "directoryCount": 844,
+    "zipRoundTripMatchesInstalledApp": true,
+    "unpackedCodesignDeepStrictAllArchitecturesExit": 0,
+    "priorIndividualSignatureChecks": "15/15 pass",
+    "gatekeeper": "rejected (exit 3); ad-hoc package, not notarized distribution acceptance"
+  },
+  "previousSeparateProfileTests": {
+    "publicSubscriptions": "manual refresh, selected network blocking and controlled element hiding passed",
+    "downloads": "8 MiB attachment and HTTPS text/Blob passed",
+    "video": "short MP4 and WebM passed; long video/DRM/audio not covered",
+    "extensions": "Dark Reader and SingleFile unpacked mode passed; Web Store install/update not covered",
+    "configurationMigratedToCurrentDefault": false
+  },
+  "historicalFailuresPreserved": [
+    "default profile SingletonLock EPERM; application exit 21 before directory fix",
+    "post-fix navigation 15-second timeout before authorization",
+    "post-fix navigation 240-second timeout before authorization"
+  ],
+  "unverified": [
+    "official Shields component update recovery (last observed HTTP 403)",
+    "browser program upgrade",
+    "full unit-test execution (syntax/type checks only)",
+    "production account workflows",
+    "Web Store install/update",
+    "DRM and long-running media",
+    "fully isolated bundle/keychain/update identity",
+    "cross-machine launch and long-term stability",
+    "complete attribution of Chromium working-tree diff"
+  ]
+}
