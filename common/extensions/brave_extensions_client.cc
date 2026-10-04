@@ -49,7 +49,10 @@ BraveExtensionsClient::BraveExtensionsClient() = default;
 
 void BraveExtensionsClient::InitializeWebStoreUrls(
     base::CommandLine* command_line) {
-  if (command_line->HasSwitch(switches::kComponentUpdater)) {
+  if (command_line->HasSwitch("brave-local-build")) {
+    // Keep local extension downloads independent of Brave component services.
+    webstore_update_url_ = extension_urls::GetDefaultWebstoreUpdateUrl();
+  } else if (command_line->HasSwitch(switches::kComponentUpdater)) {
     webstore_update_url_ = GURL(ParseUpdateUrlHost(
         command_line->GetSwitchValueASCII(switches::kComponentUpdater)));
   } else {

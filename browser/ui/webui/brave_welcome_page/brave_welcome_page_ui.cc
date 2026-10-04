@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/check_deref.h"
+#include "base/command_line.h"
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -106,6 +107,24 @@ BraveWelcomePageUI::BraveWelcomePageUI(content::WebUI* web_ui)
   source->AddLocalizedStrings(webui::kBraveWelcomePageStrings);
 
   PrefService* local_state = g_browser_process->local_state();
+  bool is_local_build = false;
+#if BUILDFLAG(IS_MAC)
+  is_local_build =
+      base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build");
+#endif
+  source->AddBoolean("isLocalBuild", is_local_build);
+  source->AddBoolean("initialP3AEnabled",
+                     local_state->GetBoolean(p3a::kP3AEnabled));
+  source->AddBoolean(
+      "initialCrashReportingEnabled",
+      local_state->GetBoolean(metrics::prefs::kMetricsReportingEnabled));
+#if BUILDFLAG(ENABLE_WEB_DISCOVERY)
+  source->AddBoolean("initialWebDiscoveryEnabled",
+                     profile->GetPrefs()->GetBoolean(kWebDiscoveryEnabled));
+#else
+  source->AddBoolean("initialWebDiscoveryEnabled", false);
+#endif
+
   source->AddBoolean("isCrashReportingPrefManaged",
                      local_state->IsManagedPreference(
                          metrics::prefs::kMetricsReportingEnabled));
@@ -155,6 +174,11 @@ void BraveWelcomePageUI::BindInterface(
       g_browser_process->local_state());
 
 #if BUILDFLAG(ENABLE_BRAVE_EDUCATION)
+#if BUILDFLAG(IS_MAC)
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build")) {
+    return;
+  }
+#endif
   if (base::FeatureList::IsEnabled(
           brave_education::features::kShowGettingStartedPage)) {
     page_handler_->SetEducationServerChecker(

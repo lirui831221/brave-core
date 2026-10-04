@@ -1,0 +1,19 @@
+Pinned source inputs for the signed macOS local resource fallback.
+
+adblock-resources: https://github.com/brave/adblock-resources/tree/6da9b247c3368baa8b4f24cd02046e18702a6527
+brave-core-crx-packager: https://github.com/brave/brave-core-crx-packager/tree/3acdaca6f196cc8b1749ff4e963c46338465fbdf
+uBlock: https://github.com/gorhill/uBlock/tree/4dfbb048607ec4fd19c1c252fd255df6cc653720
+
+Regenerate with generate_resources.mjs --adblock-resources PATH --ublock PATH --output-dir OUTPUT.
+Do not replace this snapshot without reviewing source revisions and testing scriptlets/redirects.
+This is a bundled snapshot updated with the custom browser; it is not proof that the official component update service works.
+
+YouTube filter snapshot: uBlockOrigin/uAssets (GPL v3 or later), Brave adblock-lists (see source notices).
+https://raw.githubusercontent.com/brave/adblock-lists-mirror/ef13c66f8fb653058753d5b7a7f489e44fc08dbe/lists/ae9ffb3dd1624d8fa7e3fc3381ff11a4.txt
+https://raw.githubusercontent.com/brave/adblock-lists-mirror/ef13c66f8fb653058753d5b7a7f489e44fc08dbe/lists/b85138f942539c8e8909d0c42779d662.txt
+Transform: select desktop YouTube scriptlet rules from the initial uAssets YouTube block; narrow domain sets to www.youtube.com. Select Brave desktop YouTube cosmetic rules. Add ytd-ad-slot-renderer and ytd-mealbar-promo-renderer layout selectors. No custom JavaScript implementations.
+
+YouTube same-document response rule added 2026-10-04:
+https://raw.githubusercontent.com/uBlockOrigin/uAssets/8d4d9efaadc027129058b433811b545d9400bbd9/filters/quick-fixes.txt
+Source SHA-256: e9198b97e0d728769426ae178443d94274e9ed0940537a2caaabba8aa58a0ff8
+Only the www.youtube.com trusted-replace-fetch-response get_watch rule is included. Existing scriptlet resources and permission level are unchanged.

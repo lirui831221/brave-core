@@ -27,6 +27,7 @@
 #include "base/threading/sequence_bound.h"
 #include "base/values.h"
 #include "brave/components/brave_shields/content/browser/ad_block_engine_wrapper.h"
+#include "brave/components/brave_shields/content/browser/ad_block_startup_gate.h"
 #include "brave/components/brave_shields/content/browser/ad_block_subscription_download_manager.h"
 #include "brave/components/brave_shields/core/browser/ad_block_dat_cache_manager.h"
 #include "brave/components/brave_shields/core/browser/ad_block_filters_provider.h"
@@ -60,6 +61,7 @@ class AdBlockCustomResourceProvider;
 class AdBlockLocalhostFiltersProvider;
 class AdBlockFilterListCatalogProvider;
 class AdBlockSubscriptionServiceManager;
+class AdBlockSubscriptionFiltersProvider;
 
 // The brave shields service in charge of ad-block checking and init.
 class AdBlockService {
@@ -167,6 +169,10 @@ class AdBlockService {
     engine_wrapper_.PostTaskWithThisObject(std::move(task));
   }
 
+  // Initial cosmetic requests must see both rules and scriptlet resources.
+  void AsyncCallWhenInitialized(
+      base::OnceCallback<void(AdBlockEngineWrapper* wrapper)> task);
+
   // Call a callback on the task runner with the engine wrapper and post the
   // result back to the calling sequence (current default task runner).
   template <typename T>
@@ -214,6 +220,8 @@ class AdBlockService {
   bool IsFilterListLoadedForTesting(bool is_default_engine) const;
 
  private:
+  AdBlockStartupGate startup_gate_;
+
   static std::string g_ad_block_dat_file_version_;
 
   void OnResourcesLoaded(
@@ -272,6 +280,9 @@ class AdBlockService {
       GUARDED_BY_CONTEXT(sequence_checker_) = nullptr;
   raw_ptr<AdBlockCustomResourceProvider> custom_resource_provider_
       GUARDED_BY_CONTEXT(sequence_checker_) = nullptr;
+  std::unique_ptr<AdBlockSubscriptionFiltersProvider>
+      local_youtube_filters_provider_ GUARDED_BY_CONTEXT(sequence_checker_);
+
   std::unique_ptr<AdBlockCustomFiltersProvider> custom_filters_provider_
       GUARDED_BY_CONTEXT(sequence_checker_);
   std::unique_ptr<AdBlockLocalhostFiltersProvider> localhost_filters_provider_

@@ -9,6 +9,7 @@
 
 #include "base/check.h"
 #include "base/check_op.h"
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_util.h"
@@ -77,6 +78,11 @@ bool IsChromeDev(const std::u16string& browser_name) {
 
 #if BUILDFLAG(ENABLE_BRAVE_EDUCATION)
 bool ShouldRedirectToGettingStartedPage() {
+#if BUILDFLAG(IS_MAC)
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build")) {
+    return false;
+  }
+#endif
   return base::FeatureList::IsEnabled(
       brave_education::features::kShowGettingStartedPage);
 }

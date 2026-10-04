@@ -33,6 +33,30 @@
 
 namespace brave_shields {
 
+namespace {
+
+adblock::BlockerResult MergeBlockerResults(adblock::BlockerResult earlier,
+                                           adblock::BlockerResult later) {
+  later.matched |= earlier.matched;
+  later.has_exception |= earlier.has_exception;
+  later.important |= earlier.important;
+  if (!later.filter) {
+    later.filter = std::move(earlier.filter);
+  }
+  if (!later.exception) {
+    later.exception = std::move(earlier.exception);
+  }
+  if (!later.redirect.has_value) {
+    later.redirect = std::move(earlier.redirect);
+  }
+  if (!later.rewritten_url.has_value) {
+    later.rewritten_url = std::move(earlier.rewritten_url);
+  }
+  return later;
+}
+
+}  // namespace
+
 AdBlockEngineWrapper::AdBlockEngineWrapper(
     std::unique_ptr<AdBlockEngine> default_engine,
     std::unique_ptr<AdBlockEngine> additional_engine)
@@ -64,9 +88,19 @@ adblock::BlockerResult AdBlockEngineWrapper::ShouldStartRequest(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT("brave.adblock", "ShouldStartRequest", "url", url);
 
+  adblock::BlockerResult cached_default{};
+  if (retained_cache_engines_[0]) {
+    cached_default = retained_cache_engines_[0]->ShouldStartRequest(
+        url, resource_type, request_initiator, method, previously_matched_rule,
+        previously_matched_exception, previously_matched_important);
+  }
   adblock::BlockerResult fp_result = default_engine_->ShouldStartRequest(
-      url, resource_type, request_initiator, method, previously_matched_rule,
-      previously_matched_exception, previously_matched_important);
+      url, resource_type, request_initiator, method,
+      previously_matched_rule || cached_default.matched,
+      previously_matched_exception || cached_default.has_exception,
+      previously_matched_important || cached_default.important);
+  fp_result =
+      MergeBlockerResults(std::move(cached_default), std::move(fp_result));
 
   // removeparam results from the default engine are always ignored
   fp_result.rewritten_url.has_value = false;
@@ -92,43 +126,84 @@ adblock::BlockerResult AdBlockEngineWrapper::ShouldStartRequest(
   GURL request_url = fp_result.rewritten_url.has_value
                          ? GURL(std::string(fp_result.rewritten_url.value))
                          : url;
+  if (retained_cache_engines_[1]) {
+    auto cached = retained_cache_engines_[1]->ShouldStartRequest(
+        request_url, resource_type, request_initiator, method,
+        previously_matched_rule || fp_result.matched,
+        previously_matched_exception || fp_result.has_exception,
+        previously_matched_important || fp_result.important);
+    fp_result = MergeBlockerResults(std::move(fp_result), std::move(cached));
+    if (fp_result.rewritten_url.has_value) {
+      request_url = GURL(std::string(fp_result.rewritten_url.value));
+    }
+  }
   auto result = additional_filters_engine_->ShouldStartRequest(
       request_url, resource_type, request_initiator, method,
       previously_matched_rule | fp_result.matched,
       previously_matched_exception | fp_result.has_exception,
       previously_matched_important | fp_result.important);
 
-  result.matched |= fp_result.matched;
-  result.has_exception |= fp_result.has_exception;
-  result.important |= fp_result.important;
-  if (!result.filter) {
-    result.filter = std::move(fp_result.filter);
-  }
-  if (!result.exception) {
-    result.exception = std::move(fp_result.exception);
-  }
-  if (!result.redirect.has_value && fp_result.redirect.has_value) {
-    result.redirect = fp_result.redirect;
-  }
-  if (!result.rewritten_url.has_value && fp_result.rewritten_url.has_value) {
-    result.rewritten_url = fp_result.rewritten_url;
-  }
-  return result;
+  return MergeBlockerResults(std::move(fp_result), std::move(result));
 }
 
 bool AdBlockEngineWrapper::Load(
     bool is_default_engine,
     std::unique_ptr<rust::Box<adblock::FilterSet>> filter_set,
-    AdblockResourceStorageBox storage) {
+    AdblockResourceStorageBox storage,
+    bool preserve_cached_rules,
+    bool validate_replacement) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  auto* engine = is_default_engine ? default_engine_.get()
-                                   : additional_filters_engine_.get();
-  if (filter_set) {
-    return engine->Load(std::move(*filter_set), *storage);
-  } else {
+  auto& engine =
+      is_default_engine ? default_engine_ : additional_filters_engine_;
+  if (!preserve_cached_rules && !validate_replacement) {
+    if (filter_set) {
+      return engine->Load(std::move(*filter_set), *storage);
+    }
     engine->UseResources(*storage);
     return true;
   }
+  const size_t index = is_default_engine ? 0 : 1;
+  auto& retained = retained_cache_engines_[index];
+  if (validate_replacement && !adblock::has_resources(*storage)) {
+    return false;
+  }
+  if (!filter_set) {
+    engine->UseResources(*storage);
+    if (retained) {
+      retained->UseResources(*storage);
+    }
+    return true;
+  }
+
+  // DAT rules arrive before resources. Complete their resource initialization
+  // even when the separate rule replacement is rejected below.
+  if (loaded_from_dat_[index]) {
+    engine->UseResources(*storage);
+  }
+
+  // Build off to the side. Failed parsing/resources leave both live layers
+  // intact.
+  auto replacement = std::make_unique<AdBlockEngine>(is_default_engine);
+  if (regex_discard_policy_) {
+    replacement->SetupDiscardPolicy(*regex_discard_policy_);
+  }
+  if (!replacement->Load(std::move(*filter_set), *storage)) {
+    return false;
+  }
+  if (preserve_cached_rules && loaded_from_dat_[index] && !retained) {
+    retained = std::move(engine);
+  } else if (!preserve_cached_rules) {
+    retained.reset();
+  }
+  if (retained) {
+    retained->UseResources(*storage);
+  }
+  // All blocking queries use this sequence, so none can observe a partial swap.
+  engine = std::move(replacement);
+  loaded_from_dat_[index] = false;
+  local_rules_published_[index] = true;
+  complete_rules_published_[index] = !preserve_cached_rules;
+  return true;
 }
 
 bool AdBlockEngineWrapper::LoadDAT(bool is_default_engine,
@@ -138,8 +213,29 @@ bool AdBlockEngineWrapper::LoadDAT(bool is_default_engine,
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto* engine = is_default_engine ? default_engine_.get()
                                    : additional_filters_engine_.get();
+  const size_t index = is_default_engine ? 0 : 1;
+  if (complete_rules_published_[index]) {
+    // An asynchronous cache read cannot roll back a completed rule rebuild.
+    return true;
+  }
+  if (local_rules_published_[index]) {
+    auto cached = std::make_unique<AdBlockEngine>(is_default_engine);
+    if (regex_discard_policy_) {
+      cached->SetupDiscardPolicy(*regex_discard_policy_);
+    }
+    if (!cached->Load(true, dat, *storage)) {
+      return false;
+    }
+    retained_cache_engines_[index] = std::move(cached);
+    return true;
+  }
   if (!dat.empty()) {
-    return engine->Load(true, std::move(dat), *storage);
+    const bool loaded = engine->Load(true, std::move(dat), *storage);
+    if (loaded) {
+      loaded_from_dat_[index] = true;
+      retained_cache_engines_[index].reset();
+    }
+    return loaded;
   } else {
     engine->UseResources(*storage);
     return true;
@@ -151,6 +247,9 @@ DATFileDataBuffer AdBlockEngineWrapper::Serialize(bool is_default_engine) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto* engine = is_default_engine ? default_engine_.get()
                                    : additional_filters_engine_.get();
+  if (retained_cache_engines_[is_default_engine ? 0 : 1]) {
+    return {};
+  }
   return engine->Serialize();
 }
 
@@ -167,6 +266,13 @@ std::optional<std::string> AdBlockEngineWrapper::GetCspDirectives(
   const auto additional_csp = additional_filters_engine_->GetCspDirectives(
       url, resource_type, first_party_origin, method);
   MergeCspDirectiveInto(additional_csp, &csp_directives);
+  for (const auto& cached : retained_cache_engines_) {
+    if (cached) {
+      MergeCspDirectiveInto(cached->GetCspDirectives(
+                                url, resource_type, first_party_origin, method),
+                            &csp_directives);
+    }
+  }
 
   return csp_directives;
 }
@@ -176,13 +282,21 @@ void AdBlockEngineWrapper::UseResources(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   default_engine_->UseResources(storage);
   additional_filters_engine_->UseResources(storage);
+  for (const auto& cached : retained_cache_engines_) {
+    if (cached) {
+      cached->UseResources(storage);
+    }
+  }
 }
 
 std::pair<base::DictValue, base::DictValue>
 AdBlockEngineWrapper::GetDebugInfo() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return {default_engine_->GetDebugInfo(),
-          additional_filters_engine_->GetDebugInfo()};
+  auto first = default_engine_->GetDebugInfo();
+  auto second = additional_filters_engine_->GetDebugInfo();
+  first.Set("retained_cache", static_cast<bool>(retained_cache_engines_[0]));
+  second.Set("retained_cache", static_cast<bool>(retained_cache_engines_[1]));
+  return {std::move(first), std::move(second)};
 }
 
 void AdBlockEngineWrapper::DiscardRegex(uint64_t regex_id) {
@@ -190,11 +304,22 @@ void AdBlockEngineWrapper::DiscardRegex(uint64_t regex_id) {
   // Dispatch to both engines since regex IDs are unique across engines.
   default_engine_->DiscardRegex(regex_id);
   additional_filters_engine_->DiscardRegex(regex_id);
+  for (const auto& cached : retained_cache_engines_) {
+    if (cached) {
+      cached->DiscardRegex(regex_id);
+    }
+  }
 }
 
 void AdBlockEngineWrapper::SetupDiscardPolicy(
     const adblock::RegexManagerDiscardPolicy& policy) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  regex_discard_policy_ = policy;
+  for (const auto& cached : retained_cache_engines_) {
+    if (cached) {
+      cached->SetupDiscardPolicy(policy);
+    }
+  }
   default_engine_->SetupDiscardPolicy(policy);
   additional_filters_engine_->SetupDiscardPolicy(policy);
 }
@@ -206,6 +331,10 @@ base::DictValue AdBlockEngineWrapper::UrlCosmeticResources(
   TRACE_EVENT("brave.adblock", "UrlCosmeticResources", "url", url);
 
   base::DictValue resources = default_engine_->UrlCosmeticResources(url);
+  if (retained_cache_engines_[0]) {
+    MergeResourcesInto(retained_cache_engines_[0]->UrlCosmeticResources(url),
+                       resources, false);
+  }
 
   if (!aggressive_blocking) {
     // `:has` procedural selectors from the default engine should not be hidden
@@ -231,6 +360,10 @@ base::DictValue AdBlockEngineWrapper::UrlCosmeticResources(
 
   base::DictValue additional_resources =
       additional_filters_engine_->UrlCosmeticResources(url);
+  if (retained_cache_engines_[1]) {
+    MergeResourcesInto(retained_cache_engines_[1]->UrlCosmeticResources(url),
+                       additional_resources, false);
+  }
 
   MergeResourcesInto(std::move(additional_resources), resources,
                      /*force_hide=*/true);
@@ -253,6 +386,19 @@ base::DictValue AdBlockEngineWrapper::HiddenClassIdSelectors(
       additional_filters_engine_->HiddenClassIdSelectors(classes, ids,
                                                          exceptions);
 
+  for (size_t index = 0; index < retained_cache_engines_.size(); ++index) {
+    if (!retained_cache_engines_[index]) {
+      continue;
+    }
+    auto cached = retained_cache_engines_[index]->HiddenClassIdSelectors(
+        classes, ids, exceptions);
+    auto& into = index == 0 ? hide_selectors : force_hide_selectors;
+    for (auto& selector : cached) {
+      if (!into.contains(selector.GetString())) {
+        into.Append(std::move(selector));
+      }
+    }
+  }
   base::DictValue result;
   result.Set("hide_selectors", std::move(hide_selectors));
   result.Set("force_hide_selectors", std::move(force_hide_selectors));

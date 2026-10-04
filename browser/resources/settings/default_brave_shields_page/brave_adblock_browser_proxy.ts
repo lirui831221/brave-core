@@ -27,6 +27,8 @@ export interface FilterList {
 }
 
 export interface SubscriptionInfo {
+  last_error?: string
+  cache_status?: number
   subscription_url: string
   last_update_attempt: number
   last_successful_update_attempt: number

@@ -1,0 +1,61 @@
+{
+  "version": "mac-brave-1.0.4",
+  "status": "tested prerelease with known limitations",
+  "testedOn": "macOS 27.0.1 / Apple Silicon arm64",
+  "build": "passed",
+  "automaticTests": {
+    "passed": 41,
+    "skipped": 0,
+    "migration": 14,
+    "existingCosmeticMerge": 9,
+    "resourcesAndStartup": 10,
+    "subscription": 8
+  },
+  "liveMigrationCases": {
+    "candidateCases": 9,
+    "baselineCases": 2,
+    "expectedResults": "passed",
+    "oldDATPreserved": true,
+    "badInputRetainsOldProtection": true
+  },
+  "youtube": {
+    "scope": "bounded candidate sample",
+    "observationSeconds": 644.55,
+    "confirmedPlaybackSamplingSeconds": 600.6,
+    "distinctVideos": 4,
+    "videoEntries": 6,
+    "resolution": "1920x1080 at 24/25 fps",
+    "codecs": "AV1 / Opus",
+    "pauseResume": "passed",
+    "fullscreen": "passed",
+    "allAdsBlocked": "not established",
+    "longDuration30Minutes": "not tested for 1.0.4"
+  },
+  "security": {
+    "sandbox": "enabled",
+    "hardwareVideoDecode": "enabled",
+    "signatureIntegrity": "passed",
+    "notarization": "Accepted",
+    "stapledTicket": "passed",
+    "gatekeeper": "accepted"
+  },
+  "installation": {
+    "installedVersion": "mac-brave-1.0.4",
+    "applicationFilesMatchCandidate": true,
+    "normalStartup": "passed",
+    "personalProfilesUsedAsTestFixtures": false
+  },
+  "previousCandidateTestsOnly": [
+    "Baidu/GitHub/Bilibili",
+    "Dark Reader and SingleFile",
+    "bookmarks/PDF/print preview/download/private window"
+  ],
+  "knownLimitations": [
+    "Safe Browsing and some Brave component endpoints still return HTTP 403.",
+    "No guarantee of all YouTube ads blocked across videos, accounts, regions or future changes.",
+    "Some legacy DAT-only rules remain until complete source reconstruction succeeds; full rule withdrawal semantics are not audited.",
+    "Natural-expiry refresh, real extension upgrades and an end-to-end release upgrade installation are not yet verified.",
+    "Application identifier and keychain migration remain separate work.",
+    "No measured package-size or memory reduction claim."
+  ]
+}

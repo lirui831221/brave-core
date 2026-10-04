@@ -39,6 +39,7 @@ class AdBlockDefaultResourceProvider : public AdBlockResourceProvider {
 
  private:
   friend class ::AdBlockServiceTest;
+  friend class AdBlockDefaultResourceProviderTest;
 
   void OnComponentReady(const base::FilePath&);
 

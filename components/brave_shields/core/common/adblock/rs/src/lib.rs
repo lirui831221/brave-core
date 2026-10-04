@@ -22,6 +22,8 @@ mod ffi {
     extern "Rust" {
         type FilterSet;
         fn new_filter_set(debug: bool) -> Box<FilterSet>;
+        fn invalidate(&mut self);
+        fn validate_filter_list(rules: &CxxVector<u8>) -> bool;
         fn add_filter_list(&mut self, rules: &CxxVector<u8>) -> AddFilterListResult;
         fn add_filter_list_with_permissions(
             &mut self,
@@ -33,6 +35,7 @@ mod ffi {
         type BraveCoreResourceStorage;
         fn new_resource_storage(resources_json: &CxxString) -> Box<BraveCoreResourceStorage>;
         fn new_empty_resource_storage() -> Box<BraveCoreResourceStorage>;
+        fn has_resources(storage: &BraveCoreResourceStorage) -> bool;
         fn clone_resource_storage(
             storage: &BraveCoreResourceStorage,
         ) -> Box<BraveCoreResourceStorage>;

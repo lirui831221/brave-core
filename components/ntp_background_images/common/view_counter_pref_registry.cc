@@ -5,6 +5,8 @@
 
 #include "brave/components/ntp_background_images/common/view_counter_pref_registry.h"
 
+#include "base/command_line.h"
+#include "build/build_config.h"
 #include "brave/components/brave_ads/buildflags/buildflags.h"
 #include "brave/components/ntp_background_images/common/infobar_constants.h"
 #include "brave/components/ntp_background_images/common/pref_names.h"
@@ -56,7 +58,11 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kNewTabTakeoverNotificationDismissed,
                                 false);
-  registry->RegisterBooleanPref(prefs::kNewTabPageShowBackgroundImage, true);
+  bool show_background = true;
+#if BUILDFLAG(IS_MAC)
+  show_background = !base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build");
+#endif
+  registry->RegisterBooleanPref(prefs::kNewTabPageShowBackgroundImage, show_background);
   registry->RegisterIntegerPref(
       prefs::kNewTabTakeoverInfobarRemainingDisplayCount,
       kNewTabTakeoverInfobarRemainingDisplayCountThreshold);

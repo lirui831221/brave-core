@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "base/functional/bind.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "brave/components/brave_shields/content/browser/ad_block_subscription_download_manager.h"
 #include "brave/components/brave_shields/content/browser/ad_block_subscription_service_manager.h"
@@ -74,7 +75,11 @@ void AdBlockSubscriptionDownloadClient::OnDownloadFailed(
   AdBlockSubscriptionDownloadManager* download_manager =
       GetAdBlockSubscriptionDownloadManager();
   if (download_manager) {
-    download_manager->OnDownloadFailed(guid);
+    const int code = completion_info.response_headers
+                         ? completion_info.response_headers->response_code() : 0;
+    download_manager->OnDownloadFailed(
+        guid, code >= 400 ? "http:" + base::NumberToString(code)
+                          : "download_failed");
   }
 }
 
@@ -92,6 +97,12 @@ void AdBlockSubscriptionDownloadClient::OnDownloadSucceeded(
     return;
   }
 
+  const int code = completion_info.response_headers->response_code();
+  if (code != 200) {
+    download_manager->OnDownloadFailed(guid, "http:" + base::NumberToString(code));
+    return;
+  }
+
   std::string mimetype;
   if (!completion_info.response_headers->GetMimeType(&mimetype)) {
     download_manager->OnDownloadFailed(guid);
@@ -99,7 +110,7 @@ void AdBlockSubscriptionDownloadClient::OnDownloadSucceeded(
   }
 
   if (mimetype != "text/plain") {
-    download_manager->OnDownloadFailed(guid);
+    download_manager->OnDownloadFailed(guid, "invalid_content_type");
     return;
   }
 

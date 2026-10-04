@@ -8,26 +8,42 @@
 #include <string>
 #include <utility>
 
+#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "brave/components/brave_shields/core/browser/ad_block_filters_provider.h"
 #include "brave/components/brave_shields/core/common/adblock/rs/src/lib.rs.h"
+#include "build/build_config.h"
 #include "components/prefs/pref_service.h"
 
 namespace brave_shields {
 
 namespace {
 
+bool ValidateLocalSubscriptions() {
+#if BUILDFLAG(IS_MAC)
+  return base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build");
+#else
+  return false;
+#endif
+}
+
 // static
 void AddDATBufferToFilterSet(
     base::OnceCallback<void(const adblock::FilterListMetadata&)> on_metadata,
     DATFileDataBuffer buffer,
+    bool require_valid_rules,
     const perfetto::Flow& flow,
     rust::Box<adblock::FilterSet>* filter_set) {
   TRACE_EVENT("brave.adblock",
               "AddDATBufferToFilterSet_SubscriptionFiltersProvider", flow);
+  if (require_valid_rules && !adblock::validate_filter_list(buffer)) {
+    (*filter_set)->invalidate();
+    LOG(ERROR) << "Adblock rule validation failed; replacement rejected";
+    return;
+  }
   auto result = (*filter_set)->add_filter_list(buffer);
   if (result.result_kind == adblock::ResultKind::Success) {
     std::move(on_metadata).Run(result.value.metadata);
@@ -43,9 +59,11 @@ AdBlockSubscriptionFiltersProvider::AdBlockSubscriptionFiltersProvider(
     AdBlockFiltersProviderManager* manager,
     base::FilePath list_file,
     base::RepeatingCallback<void(const adblock::FilterListMetadata&)>
-        on_metadata_retrieved)
+        on_metadata_retrieved,
+    bool require_valid_rules)
     : AdBlockFiltersProvider(false, manager),
       list_file_(list_file),
+      require_valid_rules_(require_valid_rules || ValidateLocalSubscriptions()),
       on_metadata_retrieved_(on_metadata_retrieved) {}
 
 AdBlockSubscriptionFiltersProvider::~AdBlockSubscriptionFiltersProvider() =
@@ -87,7 +105,7 @@ void AdBlockSubscriptionFiltersProvider::OnDATFileDataReady(
           },
           base::SingleThreadTaskRunner::GetCurrentDefault(),
           on_metadata_retrieved_),
-      dat_buf, flow));
+      dat_buf, require_valid_rules_, flow));
 }
 
 void AdBlockSubscriptionFiltersProvider::OnListAvailable() {

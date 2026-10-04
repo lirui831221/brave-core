@@ -72,10 +72,15 @@ class AdBlockSubscriptionDownloadManager final : public KeyedService {
     on_download_failed_callback_ = on_download_failed_callback;
   }
 
+  std::string GetLastError(const GURL& url) const;
+  int GetCacheStatus(const GURL& url) const;
+  void CheckCache(const GURL& url, base::OnceClosure on_checked);
+
   base::WeakPtr<AdBlockSubscriptionDownloadManager> AsWeakPtr();
 
  private:
   friend class AdBlockSubscriptionDownloadClient;
+  friend class AdBlockSubscriptionDownloadManagerTest;
 
   bool service_ready_;
 
@@ -107,15 +112,18 @@ class AdBlockSubscriptionDownloadManager final : public KeyedService {
                            base::FilePath downloaded_file);
 
   // Invoked when the download as specified by |failed_download_guid| failed.
-  void OnDownloadFailed(const std::string& failed_download_guid);
+  void OnDownloadFailed(const std::string& failed_download_guid,
+                        const std::string& reason = "download_failed");
 
-  void OnDirCreated(base::FilePath downloaded_file,
-                    const GURL& download_url,
-                    bool created);
+  void ReplaceFileCallback(const GURL& download_url, std::string error);
+  void ReportFailure(const GURL& url, const std::string& reason);
+  void OnFailureCacheChecked(const GURL& url, const std::string& reason,
+                             bool valid);
+  void OnCacheChecked(const GURL& url, base::OnceClosure on_checked, bool valid);
 
-  // Invoked after ReplaceFile to report the status of moving the temporary
-  // download file to its destination path.
-  void ReplaceFileCallback(const GURL& download_url, bool success);
+  // Cache status is rechecked per session; -1 means not checked yet.
+  std::map<GURL, std::string> last_errors_;
+  std::map<GURL, int> cache_status_;
 
   // GUIDs that are still pending download, mapped to the corresponding URLs of
   // their subscription services.

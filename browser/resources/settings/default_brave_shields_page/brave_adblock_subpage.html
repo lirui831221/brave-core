@@ -147,6 +147,12 @@
     font-weight: 500;
   }
 
+  .subscribe-url-item-diagnostic {
+    display: block;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+
   .subscribe-url-list-title {
     font-size: 16px;
     font-weight: 500;
@@ -317,6 +323,12 @@
                 <template is="dom-if" if="[[isLastAttemptFailed_(item)]]">
                   <span>[[item.last_updated_pretty_text]]</span>
                 </template>
+                <span class="subscribe-url-item-diagnostic" role="status">
+                  [[getCacheStatus_(item)]]
+                  <template is="dom-if" if="[[item.last_error]]">
+                    <br>[[getDownloadError_(item)]]
+                  </template>
+                </span>
               </span>
               <adblock-subscribe-dropdown
                 on-update-subscription="handleUpdateSubscription_"

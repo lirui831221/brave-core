@@ -5,6 +5,12 @@
   <!--Add new items to the appropriate sections below -->
 
   <!-- Strings not associated with a particular section-->
+  <message name="IDS_BRAVE_LOCAL_FEATURE_UNAVAILABLE_TITLE" desc="Title shown when a service disabled in the local custom distribution is opened directly">
+    This feature is not provided in this custom build
+  </message>
+  <message name="IDS_BRAVE_LOCAL_FEATURE_UNAVAILABLE_BODY" desc="Explanation for a service intentionally disabled by the local custom distribution">
+    This optional service is disabled in this custom build. You can continue browsing normally. Existing saved data has not been removed.
+  </message>
   <message name="IDS_SETTINGS_RESTART_NOTICE" desc="Notifies the user that they need to relaunch Brave">
     Your changes will take effect the next time you relaunch Brave.
   </message>
@@ -2150,4 +2156,31 @@
 
   <!--Add new items to the appropriate sections above -->
 
-  </grit-part>
+  <message name="IDS_BRAVE_ADBLOCK_DIAGNOSTIC_CACHE_AVAILABLE" desc="Status after the saved subscription rules pass validation">
+    Cached rules validated
+  </message>
+  <message name="IDS_BRAVE_ADBLOCK_DIAGNOSTIC_CACHE_UNAVAILABLE" desc="Status when no saved subscription rules pass validation">
+    No usable cached rules
+  </message>
+  <message name="IDS_BRAVE_ADBLOCK_DIAGNOSTIC_CACHE_UNKNOWN" desc="Status before saved subscription rules have been checked this session">
+    Cached rules not checked yet
+  </message>
+  <message name="IDS_BRAVE_ADBLOCK_DIAGNOSTIC_INVALID_LIST" desc="Failure reason when a filter subscription response cannot be used">
+    Downloaded content is not a usable filter list
+  </message>
+  <message name="IDS_BRAVE_ADBLOCK_DIAGNOSTIC_CACHE_WRITE_FAILED" desc="Failure reason when a validated filter subscription cannot replace its cache">
+    Could not save rules; previous cache was not replaced
+  </message>
+  <message name="IDS_BRAVE_ADBLOCK_DIAGNOSTIC_HTTP_FAILURE" desc="Failure reason containing the HTTP status from a filter subscription update">
+    Update server returned HTTP <ph name="CODE">$1<ex>403</ex></ph>
+  </message>
+  <message name="IDS_BRAVE_ADBLOCK_DIAGNOSTIC_DOWNLOAD_FAILURE" desc="Failure reason when a subscription download could not complete">
+    Download or scheduling failed
+  </message>
+  <message name="IDS_BRAVE_LOCAL_SAFE_BROWSING_NOTICE" desc="Notice that the custom browser distribution has not verified its Safe Browsing service">
+    Safe Browsing protection has not been verified for this custom build. An enabled setting does not confirm that its service is working.
+  </message>
+  <message name="IDS_BRAVE_LOCAL_SAFE_BROWSING_STATUS" desc="Link to the service update and database diagnostic page in a custom browser">
+    Check protection status
+  </message>
+</grit-part>

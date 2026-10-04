@@ -18,6 +18,7 @@
 #include "brave/components/brave_adblock/resources/grit/brave_adblock_generated_map.h"
 #include "brave/components/brave_shields/content/browser/ad_block_custom_filters_provider.h"
 #include "brave/components/brave_shields/content/browser/ad_block_service.h"
+#include "brave/components/brave_shields/content/browser/ad_block_subscription_download_manager.h"
 #include "brave/components/brave_shields/core/browser/ad_block_component_service_manager.h"
 #include "brave/components/brave_shields/core/browser/ad_block_custom_resource_provider.h"
 #include "brave/components/brave_shields/core/common/features.h"
@@ -400,6 +401,13 @@ base::ListValue BraveAdBlockHandler::GetSubscriptions() {
 
     dict.Set("subscription_url", subscription.subscription_url.spec());
     dict.Set("enabled", subscription.enabled);
+    dict.Set("last_error", subscription.last_error);
+    auto* manager = g_brave_browser_process->ad_block_service()
+                        ->subscription_service_manager()->download_manager();
+    dict.Set("cache_status", manager
+                                 ? manager->GetCacheStatus(
+                                       subscription.subscription_url)
+                                 : -1);
     dict.Set("last_update_attempt",
              subscription.last_update_attempt.InMillisecondsFSinceUnixEpoch());
     dict.Set("last_successful_update_attempt",

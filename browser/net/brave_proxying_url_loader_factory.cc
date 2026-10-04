@@ -7,14 +7,17 @@
 
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
 
 #include "base/byte_size.h"
 #include "base/check.h"
 #include "base/check_op.h"
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_macros.h"
@@ -32,6 +35,7 @@
 #include "mojo/public/cpp/system/data_pipe_producer.h"
 #include "mojo/public/cpp/system/string_data_source.h"
 #include "net/base/completion_repeating_callback.h"
+#include "net/base/url_util.h"
 #include "net/cookies/site_for_cookies.h"
 #include "net/http/http_util.h"
 #include "net/url_request/redirect_info.h"
@@ -42,9 +46,33 @@
 #include "services/network/public/mojom/early_hints.mojom.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "third_party/blink/public/common/loader/throttling_url_loader.h"
+#include "url/gurl.h"
 #include "url/origin.h"
 
 namespace {
+
+void LogLocalExtensionDownload(const GURL& url, const char* phase, int status) {
+  const auto* command_line = base::CommandLine::ForCurrentProcess();
+  if (!command_line->HasSwitch("brave-local-build") ||
+      !command_line->HasSwitch("brave-extension-install-diagnostics")) {
+    return;
+  }
+  std::string response;
+  if (!net::GetValueForKeyInQuery(url, "response", &response) ||
+      response != "redirect") {
+    return;
+  }
+  const bool brave_endpoint = url.host() == "go-updater.brave.com" &&
+                             url.path() == "/extensions";
+  const bool store_endpoint = url.host() == "clients2.google.com" &&
+                             url.path() == "/service/update2/crx";
+  if (brave_endpoint || store_endpoint) {
+    // Never log query parameters, headers, extension IDs, or browsing URLs.
+    LOG(WARNING) << "LOCAL_EXTENSION_DOWNLOAD backend="
+                 << (brave_endpoint ? "brave" : "webstore")
+                 << " phase=" << phase << " status=" << status;
+  }
+}
 
 // Helper struct for crafting responses.
 struct WriteData {
@@ -152,6 +180,7 @@ BraveProxyingURLLoaderFactory<T>::InProgressRequest::~InProgressRequest() {
 
 template <template <typename> class T>
 void BraveProxyingURLLoaderFactory<T>::InProgressRequest::Restart() {
+  LogLocalExtensionDownload(request_.url, "start", 0);
   UpdateRequestInfo();
   RestartInternal();
 }
@@ -313,6 +342,8 @@ void BraveProxyingURLLoaderFactory<T>::InProgressRequest::OnReceiveResponse(
     network::mojom::URLResponseHeadPtr head,
     mojo::ScopedDataPipeConsumerHandle body,
     std::optional<mojo_base::BigBuffer> cached_metadata) {
+  LogLocalExtensionDownload(request_.url, "response",
+                           head->headers ? head->headers->response_code() : 0);
   current_response_head_ = std::move(head);
   current_response_body_ = std::move(body);
   cached_metadata_ = std::move(cached_metadata);
@@ -326,6 +357,8 @@ template <template <typename> class T>
 void BraveProxyingURLLoaderFactory<T>::InProgressRequest::OnReceiveRedirect(
     const net::RedirectInfo& redirect_info,
     network::mojom::URLResponseHeadPtr head) {
+  LogLocalExtensionDownload(request_.url, "redirect",
+                           head->headers ? head->headers->response_code() : 0);
   if (!IsBypassRedirectChecksAuthorized() &&
       !content::IsSafeRedirectTarget(request_.url, redirect_info.new_url)) {
     OnRequestError(
@@ -359,6 +392,7 @@ void BraveProxyingURLLoaderFactory<T>::InProgressRequest::OnTransferSizeUpdated(
 template <template <typename> class T>
 void BraveProxyingURLLoaderFactory<T>::InProgressRequest::OnComplete(
     const network::URLLoaderCompletionStatus& status) {
+  LogLocalExtensionDownload(request_.url, "complete", status.error_code);
   UMA_HISTOGRAM_TIMES("Brave.ProxyingURLLoader.TotalRequestTime",
                       elapsed_timer_.Elapsed());
   if (status.error_code != net::OK) {

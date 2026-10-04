@@ -8,6 +8,20 @@ import {RegisterPolymerTemplateModifications} from 'chrome://resources/brave/pol
 
 RegisterPolymerTemplateModifications({
   'settings-security-page': (templateContent) => {
+    if (loadTimeData.valueExists('braveLocalBuild') &&
+        loadTimeData.getBoolean('braveLocalBuild')) {
+      const notice = document.createElement('div')
+      notice.className = 'settings-box'
+      notice.setAttribute('role', 'status')
+      const message = document.createElement('span')
+      message.textContent = loadTimeData.getString('localSafeBrowsingNotice')
+      const diagnostics = document.createElement('a')
+      diagnostics.href = 'brave://safe-browsing/#tab-db-manager'
+      diagnostics.target = '_blank'
+      diagnostics.textContent = loadTimeData.getString('localSafeBrowsingStatus')
+      notice.append(message, document.createTextNode(' '), diagnostics)
+      templateContent.prepend(notice)
+    }
     const safeBrowsingReportingToggleSetting = templateContent.
       querySelector(
         'template[is=dom-if][if="[[!hideExtendedReportingRadioButton_]]"]'

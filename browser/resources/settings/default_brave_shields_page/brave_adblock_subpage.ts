@@ -229,6 +229,25 @@ class AdBlockSubpage extends AdBlockSubpageBase {
     return lhs === rhs
   }
 
+  private getCacheStatus_(item: SubscriptionInfo) {
+    if (item.cache_status === 1) return this.i18n('adblockDiagnosticCacheAvailable')
+    if (item.cache_status === 0) return this.i18n('adblockDiagnosticCacheUnavailable')
+    return this.i18n('adblockDiagnosticCacheUnknown')
+  }
+
+  private getDownloadError_(item: SubscriptionInfo) {
+    const error = item.last_error || ''
+    if (!error) return ''
+    if (/^http:[0-9]{3}$/.test(error)) {
+      return this.i18n('adblockDiagnosticHttpFailure', error.slice(5))
+    }
+    if (error === 'invalid_list' || error === 'invalid_content_type') {
+      return this.i18n('adblockDiagnosticInvalidList')
+    }
+    if (error.startsWith('cache_')) return this.i18n('adblockDiagnosticCacheWriteFailed')
+    return this.i18n('adblockDiagnosticDownloadFailure')
+  }
+
   private isFailedUpdate_(item: SubscriptionInfo) {
     return item.last_successful_update_attempt !== 0 &&
            item.last_successful_update_attempt !== item.last_update_attempt

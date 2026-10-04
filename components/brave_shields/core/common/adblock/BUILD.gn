@@ -6,6 +6,9 @@
 group("adblock") {
   visibility = [
     "//brave/components/brave_shields/content/browser:*",
+    "//brave/components/brave_shields/content/test:adblock_cache_migration_unittests",
+    "//brave/components/brave_shields/content/test:local_adblock_resources_unittests",
+    "//brave/components/brave_shields/content/test:subscription_update_unittests",
     "//brave/components/brave_shields/content/test:test_support",
     "//brave/components/brave_shields/content/test:unit_tests",
     "//brave/components/brave_shields/core/browser:*",

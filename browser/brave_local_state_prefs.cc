@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "base/command_line.h"
 #include "base/values.h"
 #include "brave/browser/brave_search/backup_results_service_impl.h"
 #include "brave/browser/brave_stats/buildflags.h"
@@ -39,6 +40,7 @@
 #include "brave/components/ntp_background_images/common/view_counter_pref_registry.h"
 #include "brave/components/p3a/metric_log_store.h"
 #include "brave/components/p3a/p3a_service.h"
+#include "brave/components/p3a/pref_names.h"
 #include "brave/components/p3a/rotation_scheduler.h"
 #include "brave/components/playlist/core/common/buildflags/buildflags.h"
 #include "brave/components/skus/browser/skus_utils.h"
@@ -308,6 +310,15 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
 #if !BUILDFLAG(IS_IOS)
   registry->RegisterBooleanPref(
       brave_shields::prefs::kAllowElementBlockerInPrivateMode, false);
+#endif
+#if BUILDFLAG(IS_MAC)
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build")) {
+    // Change the default layer only; saved user choices still take precedence.
+    registry->SetDefaultPrefValue(p3a::kP3AEnabled, base::Value(false));
+    registry->SetDefaultPrefValue(kStatsReportingEnabled, base::Value(false));
+    registry->SetDefaultPrefValue(metrics::prefs::kMetricsReportingEnabled,
+                                  base::Value(false));
+  }
 #endif
 }
 

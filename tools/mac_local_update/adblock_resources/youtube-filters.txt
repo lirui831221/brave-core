@@ -1,0 +1,25 @@
+! Title: Local YouTube compatibility snapshot
+! Scope: desktop www.youtube.com only; updated with the signed browser.
+! uAssets: https://raw.githubusercontent.com/brave/adblock-lists-mirror/ef13c66f8fb653058753d5b7a7f489e44fc08dbe/lists/ae9ffb3dd1624d8fa7e3fc3381ff11a4.txt
+! Brave first-party: https://raw.githubusercontent.com/brave/adblock-lists-mirror/ef13c66f8fb653058753d5b7a7f489e44fc08dbe/lists/b85138f942539c8e8909d0c42779d662.txt
+! License and source notices: SOURCES.txt / UBLOCK-LICENSE.txt
+! Last two selectors are local layout rules; no global filtering exceptions.
+www.youtube.com##+js(trusted-replace-xhr-response, /"adPlacements.*?([A-Z]"\}|"\}{2\,4})\}\]\,/, , /playlist\?list=|\/player(?:\?.+)?$|watch\?[tv]=/)
+www.youtube.com##+js(trusted-replace-xhr-response, /"adPlacements.*?("adSlots"|"adBreakHeartbeatParams")/gms, $1, /\/player(?:\?.+)?$/)
+www.youtube.com##+js(trusted-replace-fetch-response, '"adPlacements"', '"no_ads"', player?)
+www.youtube.com##+js(trusted-replace-fetch-response, '"adSlots"', '"no_ads"', player?)
+www.youtube.com##+js(set, ytInitialPlayerResponse.playerAds, undefined)
+www.youtube.com##+js(set, ytInitialPlayerResponse.adPlacements, undefined)
+www.youtube.com##+js(set, ytInitialPlayerResponse.adSlots, undefined)
+www.youtube.com##+js(set, playerResponse.adPlacements, undefined)
+www.youtube.com##+js(json-prune-fetch-response, reelWatchSequenceResponse.entries.[-].command.reelWatchEndpoint.adClientParams.isAd entries.[-].command.reelWatchEndpoint.adClientParams.isAd, , propsToMatch, url:/reel_watch_sequence?)
+www.youtube.com##+js(json-prune, entries.[-].command.reelWatchEndpoint.adClientParams.isAd)
+www.youtube.com##.YtdTalkToRecsFlowRendererHost:has-text(What hobbies are you interested in developing?)
+www.youtube.com##tp-yt-paper-dialog.ytd-popup-container:has(> .ytd-popup-container > #options.ytd-checkbox-survey-renderer)
+www.youtube.com##tp-yt-paper-dialog.ytd-popup-container:has-text(/How do you feel|Which of the following|following Premium|Get background play|Choose all that apply|Become a member of this channel|Free trial|How are your|How interested|Live TV|Wish videos|better TV|cable box|cable reimagined|hidden fees|of YouTube TV|on YouTube TV|unlimited DVR|with YouTube TV|without the ads|try this feature|Terms apply|View live scores/)
+www.youtube.com##.YtdTalkToRecsFlowRendererHost:has-text(/Ask for videos|What do you like|Help us improve/)
+www.youtube.com##ytd-ad-slot-renderer
+www.youtube.com##ytd-mealbar-promo-renderer
+
+! Pinned uAssets quick-fix for the same-document get_watch player response.
+www.youtube.com##+js(trusted-replace-fetch-response, '"adSlots"', '"no_ads"', /get_watch?)

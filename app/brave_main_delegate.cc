@@ -38,6 +38,10 @@
 #include "google_apis/gaia/gaia_switches.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 
+#if BUILDFLAG(IS_MAC)
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
 #if BUILDFLAG(IS_LINUX)
 #include "base/linux_util.h"
 #endif
@@ -118,6 +122,24 @@ content::ContentUtilityClient* BraveMainDelegate::CreateContentUtilityClient() {
 // static
 void BraveMainDelegate::AppendCommandLineOptions() {
   auto* command_line = base::CommandLine::ForCurrentProcess();
+#if BUILDFLAG(IS_MAC)
+  // Only explicitly marked local distributions use these restrictions.
+  if (CFBundleGetValueForInfoDictionaryKey(CFBundleGetMainBundle(),
+                                          CFSTR("BraveLocalBuild")) ==
+      kCFBooleanTrue) {
+    command_line->AppendSwitch("brave-local-build");
+    command_line->AppendSwitch(switches::kDisableBraveUpdate);
+    command_line->AppendSwitch("disable-updater-scheduler");
+    std::string disabled =
+        command_line->GetSwitchValueASCII(switches::kDisableFeatures);
+    if (!disabled.empty()) {
+      disabled += ',';
+    }
+    disabled += "BraveUseOmaha4";
+    command_line->RemoveSwitch(switches::kDisableFeatures);
+    command_line->AppendSwitchASCII(switches::kDisableFeatures, disabled);
+  }
+#endif
   command_line->AppendSwitch(switches::kDisableDomainReliability);
   command_line->AppendSwitch(switches::kEnableDomDistiller);
   command_line->AppendSwitch(switches::kEnableDistillabilityService);

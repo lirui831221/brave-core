@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/check.h"
+#include "base/command_line.h"
 #include "base/containers/flat_map.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
@@ -20,6 +21,7 @@
 #include "brave/components/brave_ads/core/browser/network/oblivious_http_feature.h"
 #include "brave/components/brave_ads/core/browser/network/oblivious_http_key_config.h"
 #include "brave/components/brave_ads/core/mojom/brave_ads.mojom.h"
+#include "build/build_config.h"
 #include "components/prefs/pref_service.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
@@ -128,6 +130,15 @@ HttpClient::HttpClient(
           ObliviousHttpKeyConfigUrl(use_ohttp_staging))),
       oblivious_http_relay_url_(ObliviousHttpRelayUrl(use_ohttp_staging)) {
   CHECK(oblivious_http_key_config_);
+
+#if BUILDFLAG(IS_MAC)
+  // This distribution disables Rewards. Do not warm its advertising transport
+  // before the policy-ready service gate has run. Keep the request-time OHTTP
+  // path unchanged; this only suppresses the constructor's fetch and timer.
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build")) {
+    return;
+  }
+#endif
 
   // Fetch the OHTTP key config so the client is ready.
   if (kShouldSupportOhttp.Get()) {

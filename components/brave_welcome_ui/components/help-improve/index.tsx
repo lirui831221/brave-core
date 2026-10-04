@@ -63,9 +63,13 @@ function HelpImprove() {
   // <if expr="is_brave_origin_branded">
   const [isMetricsReportingEnabled, setMetricsReportingEnabled] = React.useState(false)
   // <else>
-  const [isMetricsReportingEnabled, setMetricsReportingEnabled] = React.useState(true)
+  const [isMetricsReportingEnabled, setMetricsReportingEnabled] = React.useState(
+    loadTimeData.getBoolean('isLocalBuild')
+      ? loadTimeData.getBoolean('initialCrashReportingEnabled') : true)
   // </if>
-  const [isP3AEnabled, setP3AEnabled] = React.useState(true)
+  const [isP3AEnabled, setP3AEnabled] = React.useState(
+    loadTimeData.getBoolean('isLocalBuild')
+      ? loadTimeData.getBoolean('initialP3AEnabled') : true)
   const [completeURLPromise] = React.useState(() => {
     return WelcomeBrowserProxyImpl.getInstance().getWelcomeCompleteURL()
   })

@@ -19,6 +19,7 @@ static_library("browser") {
     "ad_block_pref_service.h",
     "ad_block_service.cc",
     "ad_block_service.h",
+    "ad_block_startup_gate.h",
     "ad_block_subscription_download_client.cc",
     "ad_block_subscription_download_client.h",
     "ad_block_subscription_download_manager.cc",

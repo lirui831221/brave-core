@@ -8,10 +8,14 @@
 #include <string>
 #include <utility>
 
+#include "base/base_paths.h"
+#include "base/command_line.h"
 #include "base/files/file_path.h"
+#include "base/path_service.h"
 #include "base/task/thread_pool.h"
 #include "brave/components/brave_component_updater/browser/dat_file_util.h"
 #include "brave/components/brave_shields/core/browser/ad_block_component_installer.h"
+#include "build/build_config.h"
 
 namespace {
 
@@ -38,6 +42,17 @@ AdBlockDefaultResourceProvider::~AdBlockDefaultResourceProvider() = default;
 
 base::FilePath AdBlockDefaultResourceProvider::GetResourcesPath() {
   if (component_path_.empty()) {
+#if BUILDFLAG(IS_MAC)
+    // Marked distributions ship a reviewed snapshot inside the signed bundle.
+    // A verified updater component takes precedence when one becomes available.
+    if (base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build")) {
+      base::FilePath assets;
+      if (base::PathService::Get(base::DIR_ASSETS, &assets)) {
+        return assets.AppendASCII("brave_local_adblock")
+            .AppendASCII(kAdBlockResourcesFilename);
+      }
+    }
+#endif  // BUILDFLAG(IS_MAC)
     // Since we know it's empty return it as is.
     return component_path_;
   }

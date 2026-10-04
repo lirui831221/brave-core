@@ -14,7 +14,7 @@ use cxx::{let_cxx_string, CxxString, CxxVector};
 
 use crate::ffi::{
     resolve_domain_position, BlockerResult, BoxEngineResult, ContentBlockingRulesResult, DebugInfo,
-    FilterListMetadata, RegexManagerDiscardPolicy, VecStringResult,
+    FilterListMetadata, RegexManagerDiscardPolicy, ResultKind, VecStringResult,
 };
 use crate::filter_set::FilterSet;
 use crate::result::InternalError;
@@ -51,6 +51,13 @@ pub fn engine_with_rules(rules: &CxxVector<u8>) -> BoxEngineResult {
 
 /// Creates a new engine with rules from a given filter set.
 pub fn engine_from_filter_set(filter_set: Box<FilterSet>) -> BoxEngineResult {
+    if !filter_set.1 {
+        return BoxEngineResult {
+            value: new_engine(),
+            result_kind: ResultKind::AdblockError,
+            error_message: "Filter provider validation failed".to_owned(),
+        };
+    }
     || -> Result<Box<Engine>, InternalError> {
         let engine = InnerEngine::new_with_filter_set(filter_set.0);
         Ok(Box::new(Engine { engine }))
@@ -93,14 +100,15 @@ pub fn convert_rules_to_content_blocking(rules: &CxxString) -> ContentBlockingRu
             ParseOptions { rule_types: RuleTypes::NetworkOnly, ..Default::default() },
         );
 
-        // `unwrap` is safe here because `into_content_blocking` only panics if the
-        // `FilterSet` was not created in debug mode
+        // `unwrap` is safe here because `into_content_blocking` only panics if
+        // the `FilterSet` was not created in debug mode
         let (mut cb_rules, _) = filter_set.into_content_blocking().unwrap();
         let rules_len = cb_rules.len();
         let truncated = if rules_len > MAX_CB_LIST_SIZE {
-            // Note that the last rule is always the first-party document exception rule,
-            // which we want to keep. Otherwise, we can arbitrarily truncate rules
-            // before that to ensure that the list can actually compile.
+            // Note that the last rule is always the first-party document
+            // exception rule, which we want to keep. Otherwise, we
+            // can arbitrarily truncate rules before that to ensure
+            // that the list can actually compile.
             cb_rules.swap(rules_len - 1, MAX_CB_LIST_SIZE - 1);
             cb_rules.truncate(MAX_CB_LIST_SIZE);
             true

@@ -30,6 +30,12 @@ class BraveWebUIControllerFactory : public ChromeWebUIControllerFactory {
 
   static BraveWebUIControllerFactory* GetInstance();
 
+  // Redirect disabled services to a clear, inert explanation page, only in the
+  // marked macOS distribution and only when its policy is actually effective.
+  static bool MaybeRewriteLocalDisabledFeatureURL(
+      GURL* url,
+      content::BrowserContext* browser_context);
+
  protected:
   friend base::NoDestructor<BraveWebUIControllerFactory>;
 

@@ -1,0 +1,410 @@
+{
+  "baseCommit": "26101b8ddd687f0abd974337742fc3f4233253ae",
+  "fileCount": 67,
+  "files": [
+    {
+      "path": "app/brave_main_delegate.cc",
+      "sha256": "1351bcca74c49f7afd5c6ed83316068d7ade68fcfe430a36300888c57aaa3f5b",
+      "bytes": 9329,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "app/brave_settings_strings.grdp",
+      "sha256": "cd77f932080ef942fc0e77faae3877f9123ff51f6f063dccff1f2d923543af6c",
+      "bytes": 132960,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/brave_content_browser_client.cc",
+      "sha256": "39e0fb34486773bd504a0308382e0e2151dcdee323753066c4f6f424799080da",
+      "bytes": 73645,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/brave_local_state_prefs.cc",
+      "sha256": "e8ae2f2bcbf049db448704cb42885abe1dabbd7225159a1827f2ec53c4899178",
+      "bytes": 12297,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/brave_profile_prefs.cc",
+      "sha256": "9c3768a2a1fa4adc1682a7ae84d0a891f2ba1bc531e3661d1afbdafb24cf6ecf",
+      "bytes": 26390,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/net/brave_proxying_url_loader_factory.cc",
+      "sha256": "a21f73da28edf775fd6b8c020bdb84209f68cfc1d235a3949affe4f6ae36fcff",
+      "bytes": 35179,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/playlist/playlist_service_factory.cc",
+      "sha256": "bd858bbf9c27ca4f6992153a5448084c0f79d6462807f340a5f4b90e27530c25",
+      "bytes": 11397,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/resources/brave_welcome_page/components/metrics_step.tsx",
+      "sha256": "d7b349df4285bd59d3edd4d4ee8e9ba30f3dc6747c3d6c6a360cfb93686573a1",
+      "bytes": 5220,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/resources/settings/br/security_page.ts",
+      "sha256": "f25e6e2d27f7c87eb80c5bcd7f14933a87fda3b192078546aba10eb8a5420bfb",
+      "bytes": 4382,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/resources/settings/default_brave_shields_page/brave_adblock_browser_proxy.ts",
+      "sha256": "a0ce023522e552fd097205951bfefd0e4dd6dbe97872f0c86bccbc7e2d8eb10b",
+      "bytes": 5119,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/resources/settings/default_brave_shields_page/brave_adblock_subpage.html",
+      "sha256": "2185dc21421a5d4bd5bfc4a1dab30d64c4f36e830f79fa783fb61b46cfa42ad3",
+      "bytes": 11757,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/resources/settings/default_brave_shields_page/brave_adblock_subpage.ts",
+      "sha256": "190bcc8ccfeb534ef826f978478b59172e3c69d3c94d7eaca48d15e7c7fbf11d",
+      "bytes": 7568,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/ui/webui/brave_adblock_ui.cc",
+      "sha256": "cb59d90d66976cf51c80d212f9f9af80d1978a3b58abfbc39e741c60e6c042a5",
+      "bytes": 12857,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/ui/webui/brave_web_ui_controller_factory.cc",
+      "sha256": "d089c240e8605aef64886e112ebcc8530e331fb3bd81c9e701ff8a383e7b5083",
+      "bytes": 14945,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/ui/webui/brave_web_ui_controller_factory.h",
+      "sha256": "709a75dc4ed62a8913e5fff01c85436c3e38efd3e988cf4d54b8a452c9f829b9",
+      "bytes": 1682,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/ui/webui/brave_welcome_page/brave_welcome_page_ui.cc",
+      "sha256": "7533efe9ce8951d78c178b3ea52514e1d6621a33892e568ed864c61d5518620f",
+      "bytes": 9360,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/ui/webui/settings/brave_adblock_handler.cc",
+      "sha256": "f42db10e6623ee7baa74580b7ff57b0e0abc87d88ac18db82b9493c2485e3f71",
+      "bytes": 15722,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/ui/webui/settings/brave_settings_localized_strings_provider.cc",
+      "sha256": "43bcebbd2536d40e6ff0a37f1afa490295f8880609b41a0e77163b88c44d51de",
+      "bytes": 79790,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/ui/webui/welcome_page/brave_welcome_ui.cc",
+      "sha256": "7ca3508b1297610be07f08be9e67204a4eaf7029d3c4fd7701459f147a570d09",
+      "bytes": 9977,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "browser/ui/webui/welcome_page/welcome_dom_handler.cc",
+      "sha256": "62d560e5e875a8b67d9025bcbe8e5c762d40b1f3bf9ac7a7b331859b961275ce",
+      "bytes": 10152,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "chromium_src/chrome/browser/policy/chrome_browser_policy_connector.cc",
+      "sha256": "c07c6d109e9c83e361585d5bb9deaafbd59246d048824d2f1511ff25f9a94419",
+      "bytes": 3642,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "chromium_src/chrome/browser/policy/profile_policy_connector.cc",
+      "sha256": "7592c86efa484f47c71bf7bd98c4477019291534ee78a9f4e7e577ca4fb77196",
+      "bytes": 1919,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "common/extensions/brave_extensions_client.cc",
+      "sha256": "42ea3fb8fd62f0541c5d16a4c129b53c63210d033f5b6503ebc8d26cb236ac8a",
+      "bytes": 2468,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_ads/core/browser/network/http_client.cc",
+      "sha256": "b6e63b8aed98dc62c33c3d424f50a15a41a238154fec6307330c8b75d4258ca7",
+      "bytes": 10720,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/content/browser/BUILD.gn",
+      "sha256": "759c8fc936dae2bda2e683f32727594fe0ecd970891ea981de52b1ae4f2814a6",
+      "bytes": 3048,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/content/browser/ad_block_engine_wrapper.cc",
+      "sha256": "b45201eec9b5f5a40fbbbe70045304ad8de3c11fbd761b14631707981e66eef6",
+      "bytes": 18796,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/content/browser/ad_block_engine_wrapper.h",
+      "sha256": "ef25e9db506ad9318a73662b46042f301e2e500942b2eb62c356649b0350879e",
+      "bytes": 4478,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/content/browser/ad_block_service.cc",
+      "sha256": "2b26ca1417d2eccc3f96727e0096a16ca6e5d7914cb11cb4061b81acff85476d",
+      "bytes": 25717,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/content/browser/ad_block_service.h",
+      "sha256": "cf09f7190f932914df421165ed19c54470d85c0ecd5c7ec669ffb671b4ca8c18",
+      "bytes": 13354,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/content/browser/ad_block_startup_gate.h",
+      "sha256": "8487fc6c8c86adab6ac7cc8cba92bf817b07632cc4a90d80db1fc6ef4a1cd6e2",
+      "bytes": 1539,
+      "newRelativeToBase": true
+    },
+    {
+      "path": "components/brave_shields/content/browser/ad_block_subscription_download_client.cc",
+      "sha256": "f41476f6dd42d74caaf2905ab4ead5d78775cc5097db2118da86ab5b967e0856",
+      "bytes": 4893,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/content/browser/ad_block_subscription_download_manager.cc",
+      "sha256": "23f7dd2328c70aa9a51c78b3b490b388c60e4d5baad9105a74aaeb4348fb209b",
+      "bytes": 10293,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/content/browser/ad_block_subscription_download_manager.h",
+      "sha256": "dbc205a331a2d65a6860290e1e0ccd3361ba8c33f6f44214476ae4cc00f5aa23",
+      "bytes": 6264,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/content/browser/ad_block_subscription_filters_provider.cc",
+      "sha256": "a4b1305d90f88edf099daf3e1b61aee0dadaebef5450d80928d8b55d156ada8e",
+      "bytes": 4313,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/content/browser/ad_block_subscription_filters_provider.h",
+      "sha256": "d0ec11f961322b19321367ad9531ec9ae21e93c21ac1fa004efb07c23766974a",
+      "bytes": 2520,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/content/browser/ad_block_subscription_service_manager.cc",
+      "sha256": "b2b760cb6eab3192401b8da319d75b9c52f38439c5291783e99278d7ab368342",
+      "bytes": 20171,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/content/browser/ad_block_subscription_service_manager.h",
+      "sha256": "da0ba96de3b42dd3b24600e6e454aa342d3a431c986dc996b444f20e1dac08a5",
+      "bytes": 6365,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/content/test/BUILD.gn",
+      "sha256": "4730e6722dba509f32d8582adfbc67fd0edeab711f0580a42f417a482308d4fd",
+      "bytes": 3261,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/content/test/ad_block_cache_migration_unittest.cc",
+      "sha256": "842717b740c88087ebcf96b1a59317a2e7a40f57dc4deb217e16e6083b154a3f",
+      "bytes": 11605,
+      "newRelativeToBase": true
+    },
+    {
+      "path": "components/brave_shields/content/test/ad_block_service_unittest.cc",
+      "sha256": "273587d041aa8f34341daa0a6ea8a7377847dc5b3d183eae7dd9eee82f85e123",
+      "bytes": 34719,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/content/test/ad_block_startup_gate_unittest.cc",
+      "sha256": "87629b9355e5b1cefae2b1ccf808ca715c7a95da767c40b776a4655ccf098c6f",
+      "bytes": 2332,
+      "newRelativeToBase": true
+    },
+    {
+      "path": "components/brave_shields/content/test/ad_block_subscription_download_manager_unittest.cc",
+      "sha256": "098519d49b2cd2636a00d3f0c2b2d12d58dd96e7883d57e344e736c10e96cc0b",
+      "bytes": 8114,
+      "newRelativeToBase": true
+    },
+    {
+      "path": "components/brave_shields/core/browser/ad_block_component_filters_provider.cc",
+      "sha256": "1877c08c5bd13549570455b7ccc9dc1be86f396e9ea3442c1fc731d5fc1edc9b",
+      "bytes": 6140,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/core/browser/ad_block_component_service_manager.cc",
+      "sha256": "4c2307f57347d57fe4ac3a39a300e3d1926ea4e36faddfd3941e2ce8f9f95747",
+      "bytes": 20275,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/core/browser/ad_block_component_service_manager.h",
+      "sha256": "73f28099f1b6610b283a344780d9b1e33c8d2366b213eaa50697214e1ca4f686",
+      "bytes": 5368,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/core/browser/ad_block_default_resource_provider.cc",
+      "sha256": "40d10f4be57707fcd5ff3fb114cbffea8844e9b8fca2cd937fc1daf49a7bc7e1",
+      "bytes": 3987,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/core/browser/ad_block_default_resource_provider.h",
+      "sha256": "16229f3166cdccb229816603a2736c6c61af97dfb8eef0b753b573b1f42edd7e",
+      "bytes": 1732,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/core/browser/ad_block_default_resource_provider_unittest.cc",
+      "sha256": "c75d7ed8fbc35f8e1a8175729a9f3cebb04906ccc7f3a39355f5b555a179933c",
+      "bytes": 10610,
+      "newRelativeToBase": true
+    },
+    {
+      "path": "components/brave_shields/core/common/adblock/BUILD.gn",
+      "sha256": "54d2bae09d79a7fcfe8a51005890f1a1be45ad02c5e592ea4b666bf34b3800a1",
+      "bytes": 1033,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/core/common/adblock/rs/src/engine.rs",
+      "sha256": "35c8bbf4d727436851903d1d6af2d2b4b74c1968add83676f39fca0b4770a269",
+      "bytes": 8270,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/core/common/adblock/rs/src/filter_set.rs",
+      "sha256": "891c56ef0c157eb3ceca52200bc327156f0fac57054869925a3f161ec833b402",
+      "bytes": 3693,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/core/common/adblock/rs/src/lib.rs",
+      "sha256": "bca350cb2717446c20ad09dc71201956bb3a9c9eb597856eb346258eae9a363a",
+      "bytes": 8457,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_shields/core/common/adblock/rs/src/resource_storage.rs",
+      "sha256": "a655e65797fedd4ca1979c936b3681dbeff95cb4c4d72b405c2799e3ce7ba863",
+      "bytes": 3228,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/brave_welcome_ui/components/help-improve/index.tsx",
+      "sha256": "4424626e7c0dee310fa7100f0526f4ed7d6c5dced504a99ff94867608cbb14fe",
+      "bytes": 5450,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "components/ntp_background_images/common/view_counter_pref_registry.cc",
+      "sha256": "3004d77ba922995d033e8e9c057d16310e97823b10017398fc11e6135f248ac8",
+      "bytes": 4501,
+      "newRelativeToBase": false
+    },
+    {
+      "path": "tools/mac_local_update/README.md",
+      "sha256": "39bbc2213fc2afdb92434a8bc2954a03fae52eace7057b30c1f48c71c74b598e",
+      "bytes": 7391,
+      "newRelativeToBase": true,
+      "buildWorkingCopySha256": "01c13b3fb8fa8337f214c5b96803d11584a955d7a12471b569c1351f3805c601",
+      "publicationDocumentationOnlyUpdate": true
+    },
+    {
+      "path": "tools/mac_local_update/adblock_resources/BRAVE-RESOURCES-LICENSE.txt",
+      "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+      "bytes": 16725,
+      "newRelativeToBase": true
+    },
+    {
+      "path": "tools/mac_local_update/adblock_resources/SOURCES.txt",
+      "sha256": "c989e4b0d17aa5cc71f26de6b2064755389262c29a1d6755018b6b65aef90f9e",
+      "bytes": 1797,
+      "newRelativeToBase": true
+    },
+    {
+      "path": "tools/mac_local_update/adblock_resources/UBLOCK-LICENSE.txt",
+      "sha256": "e73d33841f942fa73aa5a63d4a6399cc39a29564db1dbca0915485842fcb236d",
+      "bytes": 35126,
+      "newRelativeToBase": true
+    },
+    {
+      "path": "tools/mac_local_update/adblock_resources/generate_resources.mjs",
+      "sha256": "398cfc49ee346c80ec67e56315d1f14d11b7f754088402aefa4cf4944e0f173f",
+      "bytes": 2537,
+      "newRelativeToBase": true
+    },
+    {
+      "path": "tools/mac_local_update/adblock_resources/resources.json",
+      "sha256": "8dadaeb7ee00534e02f01b2f11ad4b9c8715962aac32083df51ce25199214869",
+      "bytes": 1022868,
+      "newRelativeToBase": true
+    },
+    {
+      "path": "tools/mac_local_update/adblock_resources/snapshot.json",
+      "sha256": "7c5c901e11314ad223297041701dc9f4661ddd9637297f9894387bac6f5f85c6",
+      "bytes": 2091,
+      "newRelativeToBase": true
+    },
+    {
+      "path": "tools/mac_local_update/adblock_resources/youtube-filters.txt",
+      "sha256": "f978889576482af715a7521bbc0aea711f81a617ef609886400d9ff3603b13c9",
+      "bytes": 2668,
+      "newRelativeToBase": true
+    },
+    {
+      "path": "tools/mac_local_update/install.py",
+      "sha256": "d6d75a7444e9e1bb180f53073df7cd09e95b1ccf2335933432e1e174a947efd6",
+      "bytes": 5341,
+      "newRelativeToBase": true
+    },
+    {
+      "path": "tools/mac_local_update/package_candidate.py",
+      "sha256": "9a55e0653cdcbc095c7cb935c29f670962c32317b8d7cc606a35fedebe13fef1",
+      "bytes": 5064,
+      "newRelativeToBase": true
+    },
+    {
+      "path": "tools/mac_local_update/test_update.py",
+      "sha256": "3956bb98fe80931de6ab7621bb944cbb7ec28f904c104f39755fd410ab2357a1",
+      "bytes": 8703,
+      "newRelativeToBase": true
+    },
+    {
+      "path": "tools/mac_local_update/update.py",
+      "sha256": "45140b188b86e5acf6bd590d9db3251f499e40d67c8eab3c082ae2df6fba3378",
+      "bytes": 15778,
+      "newRelativeToBase": true
+    }
+  ]
+}

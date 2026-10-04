@@ -7,11 +7,18 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
+#include <utility>
 
 #include "base/check.h"
+#include "base/command_line.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
+#include "base/memory/ref_counted_memory.h"
 #include "base/no_destructor.h"
+#include "base/strings/escape.h"
+#include "base/strings/strcat.h"
 #include "brave/browser/brave_browser_features.h"
 #include "brave/browser/ntp_background/view_counter_service_factory.h"
 #include "brave/browser/ui/webui/skus_internals_ui.h"
@@ -24,14 +31,20 @@
 #include "brave/components/playlist/core/common/buildflags/buildflags.h"
 #include "brave/components/skus/common/features.h"
 #include "brave/components/tor/buildflags/buildflags.h"
+#include "brave/grit/brave_generated_resources.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/common/url_constants.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/optimization_guide_internals/webui/url_constants.h"
+#include "components/policy/core/common/policy_map.h"
+#include "components/policy/core/common/policy_service.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_ui_data_source.h"
 #include "content/public/common/url_utils.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -78,6 +91,38 @@ using content::WebUI;
 using content::WebUIController;
 
 namespace {
+
+constexpr char kLocalFeatureUnavailableHost[] = "local-feature-unavailable";
+
+bool IsMarkedLocalBuild() {
+#if BUILDFLAG(IS_MAC)
+  return base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build");
+#else
+  return false;
+#endif
+}
+
+// No handlers, script, remote assets, or access to the disabled service.
+WebUIController* NewLocalFeatureUnavailableUI(WebUI* web_ui, const GURL& url) {
+  auto* source = content::WebUIDataSource::CreateAndAdd(
+      Profile::FromWebUI(web_ui), kLocalFeatureUnavailableHost);
+  source->SetRequestFilter(
+      base::BindRepeating([](const std::string&) { return true; }),
+      base::BindRepeating(
+          [](const std::string&,
+             content::WebUIDataSource::GotDataCallback callback) {
+            const auto title = base::EscapeForHTML(l10n_util::GetStringUTF8(
+                IDS_BRAVE_LOCAL_FEATURE_UNAVAILABLE_TITLE));
+            const auto body = base::EscapeForHTML(l10n_util::GetStringUTF8(
+                IDS_BRAVE_LOCAL_FEATURE_UNAVAILABLE_BODY));
+            std::move(callback).Run(
+                base::MakeRefCounted<base::RefCountedString>(base::StrCat(
+                    {"<!doctype html><html><meta charset=utf-8><title>", title,
+                     "</title><main><h1>", title, "</h1><p>", body,
+                     "</p></main></html>"})));
+          }));
+  return new WebUIController(web_ui);
+}
 
 // A function for creating a new WebUI. The caller owns the return value, which
 // may be NULL (for example, if the URL refers to an non-existent extension).
@@ -174,6 +219,10 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
     return nullptr;
   }
 
+  if (IsMarkedLocalBuild() && url.host() == kLocalFeatureUnavailableHost) {
+    return &NewLocalFeatureUnavailableUI;
+  }
+
   if (
 #if BUILDFLAG(ENABLE_BRAVE_NEWS) && !BUILDFLAG(IS_ANDROID)
       (base::FeatureList::IsEnabled(
@@ -203,6 +252,56 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
 }
 
 }  // namespace
+
+// static
+bool BraveWebUIControllerFactory::MaybeRewriteLocalDisabledFeatureURL(
+    GURL* url,
+    content::BrowserContext* browser_context) {
+  if (!IsMarkedLocalBuild() || (!url->SchemeIs(content::kBraveUIScheme) &&
+                                !url->SchemeIs(content::kChromeUIScheme))) {
+    return false;
+  }
+  const auto& policies = Profile::FromBrowserContext(browser_context)
+                             ->GetProfilePolicyConnector()
+                             ->policy_service()
+                             ->GetPolicies(policy::PolicyNamespace(
+                                 policy::POLICY_DOMAIN_CHROME, std::string()));
+  constexpr struct {
+    std::string_view host;
+    const char* policy;
+    bool disabled_value;
+  } kServices[] = {{kRewardsPageHost, "BraveRewardsDisabled", true},
+                   {kRewardsInternalsHost, "BraveRewardsDisabled", true},
+                   {"wallet", "BraveWalletDisabled", true},
+                   {kAIChatUIHost, "BraveAIChatEnabled", false},
+                   {"local-ai", "BraveLocalAIEnabled", false},
+                   {kVPNPanelHost, "BraveVPNDisabled", true},
+                   {"vpn", "BraveVPNDisabled", true},
+                   {kTorInternalsHost, "TorDisabled", true},
+                   {kBraveNewsHost, "BraveNewsDisabled", true},
+                   {kBraveNewsInternalsHost, "BraveNewsDisabled", true},
+                   {"talk", "BraveTalkDisabled", true}};
+  for (const auto& entry : kServices) {
+    bool matches = url->host() == entry.host;
+    // Match complete route segments, never similarly named general settings.
+    if (url->host() == chrome::kChromeUISettingsHost) {
+      const auto& path = url->path();
+      if (entry.host == "wallet") {
+        matches = path == "/web3" || path == "/wallet" ||
+                  path.starts_with("/wallet/");
+      } else if (entry.host == kAIChatUIHost) {
+        matches = path == "/leo-ai" || path.starts_with("/leo-ai/");
+      }
+    }
+    const auto* value =
+        policies.GetValue(entry.policy, base::Value::Type::BOOLEAN);
+    if (matches && value && value->GetBool() == entry.disabled_value) {
+      *url = GURL("chrome://local-feature-unavailable/");
+      return true;
+    }
+  }
+  return false;
+}
 
 WebUI::TypeID BraveWebUIControllerFactory::GetWebUIType(
     content::BrowserContext* browser_context,

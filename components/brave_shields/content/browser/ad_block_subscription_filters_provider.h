@@ -31,7 +31,8 @@ class AdBlockSubscriptionFiltersProvider : public AdBlockFiltersProvider {
       AdBlockFiltersProviderManager* manager,
       base::FilePath list_file,
       base::RepeatingCallback<void(const adblock::FilterListMetadata&)>
-          on_metadata_retrieved);
+          on_metadata_retrieved,
+      bool require_valid_rules = false);
   AdBlockSubscriptionFiltersProvider(
       const AdBlockSubscriptionFiltersProvider&) = delete;
   AdBlockSubscriptionFiltersProvider& operator=(
@@ -54,6 +55,7 @@ class AdBlockSubscriptionFiltersProvider : public AdBlockFiltersProvider {
   std::string GetNameForDebugging() override;
 
   base::FilePath list_file_;
+  const bool require_valid_rules_;
 
   base::RepeatingCallback<void(const adblock::FilterListMetadata&)>
       on_metadata_retrieved_;

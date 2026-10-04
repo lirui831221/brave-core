@@ -65,6 +65,7 @@ struct SubscriptionInfo {
   // updated.
   bool enabled;
 
+  std::string last_error;
   std::optional<std::string> homepage;
   std::optional<std::string> title;
   uint16_t expires = kSubscriptionDefaultExpiresHours;

@@ -119,6 +119,7 @@ void SubscriptionInfo::RegisterJSONConverter(
       "last_successful_update_attempt",
       &SubscriptionInfo::last_successful_update_attempt, &ParseTimeValue);
   converter->RegisterBoolField("enabled", &SubscriptionInfo::enabled);
+  converter->RegisterStringField("last_error", &SubscriptionInfo::last_error);
   converter->RegisterCustomValueField<std::optional<std::string>>(
       "homepage", &SubscriptionInfo::homepage, &ParseOptionalStringField);
   converter->RegisterCustomValueField<std::optional<std::string>>(
@@ -255,6 +256,13 @@ void AdBlockSubscriptionServiceManager::CreateSubscription(
   subscription_filters_providers_.insert(
       std::make_pair(sub_url, std::move(subscription_filters_provider)));
 
+  if (download_manager_) {
+    download_manager_->CheckCache(
+        sub_url,
+        base::BindOnce(
+            &AdBlockSubscriptionServiceManager::NotifyObserversOfServiceEvent,
+            weak_ptr_factory_.GetWeakPtr()));
+  }
   StartDownload(sub_url, true);
 }
 
@@ -345,6 +353,12 @@ void AdBlockSubscriptionServiceManager::OnGetDownloadManager(
 
   download_manager_->CancelAllPendingDownloads();
   LoadSubscriptionServices();
+  for (const auto& info : GetSubscriptions()) {
+    download_manager_->CheckCache(
+        info.subscription_url,
+        base::BindOnce(&AdBlockSubscriptionServiceManager::NotifyObserversOfServiceEvent,
+                       weak_ptr_factory_.GetWeakPtr()));
+  }
 
   subscription_update_timer_->Schedule(
       kListCheckInitialDelay, kListRetryInterval,
@@ -466,6 +480,7 @@ void AdBlockSubscriptionServiceManager::UpdateSubscriptionPrefs(
     base::DictValue& subscriptions = update.Get();
     base::DictValue subscription_dict;
     subscription_dict.Set("enabled", info.enabled);
+    subscription_dict.Set("last_error", info.last_error);
     subscription_dict.Set("last_update_attempt",
                           base::TimeToValue(info.last_update_attempt));
     subscription_dict.Set(
@@ -515,6 +530,7 @@ void AdBlockSubscriptionServiceManager::OnSubscriptionDownloaded(
 
   info->last_update_attempt = base::Time::Now();
   info->last_successful_update_attempt = info->last_update_attempt;
+  info->last_error.clear();
   UpdateSubscriptionPrefs(sub_url, *info);
 
   auto* subscription_filters_provider =
@@ -534,6 +550,8 @@ void AdBlockSubscriptionServiceManager::OnSubscriptionDownloadFailure(
     return;
   }
 
+  info->last_error = download_manager_ ? download_manager_->GetLastError(sub_url)
+                                       : "download_failed";
   info->last_update_attempt = base::Time::Now();
   UpdateSubscriptionPrefs(sub_url, *info);
 

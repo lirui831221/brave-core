@@ -6,12 +6,15 @@
 #include "brave/components/brave_shields/content/browser/ad_block_subscription_download_manager.h"
 
 #include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/uuid.h"
+#include "brave/components/brave_shields/core/common/adblock/rs/src/lib.rs.h"
 #include "brave/components/brave_shields/core/common/brave_shield_constants.h"
 #include "build/build_config.h"
 #include "components/download/public/background_service/background_download_service.h"
@@ -20,6 +23,30 @@
 namespace brave_shields {
 
 namespace {
+
+bool IsValidListFile(const base::FilePath& file) {
+  std::string text;
+  // Bound untrusted downloads before parsing them on the background sequence.
+  if (!base::ReadFileToStringWithMaxSize(file, &text, 64 * 1024 * 1024)) {
+    return false;
+  }
+  const std::vector<uint8_t> bytes(text.begin(), text.end());
+  return adblock::validate_filter_list(bytes);
+}
+
+std::string ValidateAndReplaceList(const base::FilePath& downloaded_file,
+                                   const base::FilePath& destination) {
+  if (!IsValidListFile(downloaded_file)) {
+    return "invalid_list";
+  }
+  if (!base::CreateDirectory(destination.DirName())) {
+    return "cache_directory_failed";
+  }
+  if (!base::ReplaceFile(downloaded_file, destination, nullptr)) {
+    return "cache_replace_failed";
+  }
+  return {};
+}
 
 const net::NetworkTrafficAnnotationTag
     kBraveShieldsAdBlockSubscriptionTrafficAnnotation =
@@ -135,11 +162,15 @@ void AdBlockSubscriptionDownloadManager::OnDownloadStarted(
   if (start_result == download::DownloadParams::StartResult::ACCEPTED) {
     pending_download_guids_.insert(
         std::pair<std::string, GURL>(guid, download_url));
+  } else {
+    // Rejected scheduling must update the failure state so the timer retries.
+    ReportFailure(download_url, "scheduling_failed");
   }
 }
 
 void AdBlockSubscriptionDownloadManager::OnDownloadFailed(
-    const std::string& guid) {
+    const std::string& guid,
+    const std::string& reason) {
   auto it = pending_download_guids_.find(guid);
   if (it == pending_download_guids_.end()) {
     return;
@@ -151,11 +182,7 @@ void AdBlockSubscriptionDownloadManager::OnDownloadFailed(
       "BraveShields.AdBlockSubscriptionDownloadManager.DownloadSucceeded",
       false);
 
-  on_download_failed_callback_.Run(download_url);
-}
-
-bool EnsureDirExists(const base::FilePath& destination_dir) {
-  return base::CreateDirectory(destination_dir);
+  ReportFailure(download_url, reason);
 }
 
 void AdBlockSubscriptionDownloadManager::OnDownloadSucceeded(
@@ -172,43 +199,69 @@ void AdBlockSubscriptionDownloadManager::OnDownloadSucceeded(
       "BraveShields.AdBlockSubscriptionDownloadManager.DownloadSucceeded",
       true);
 
+  const auto destination = subscription_path_callback_.Run(download_url)
+                               .Append(kCustomSubscriptionListText);
   background_task_runner_->PostTaskAndReplyWithResult(
       FROM_HERE,
-      base::BindOnce(&EnsureDirExists,
-                     subscription_path_callback_.Run(download_url)),
-      base::BindOnce(&AdBlockSubscriptionDownloadManager::OnDirCreated,
-                     AsWeakPtr(), downloaded_file, download_url));
-}
-
-void AdBlockSubscriptionDownloadManager::OnDirCreated(
-    base::FilePath downloaded_file,
-    const GURL& download_url,
-    bool created) {
-  if (!created) {
-    on_download_failed_callback_.Run(download_url);
-    return;
-  }
-
-  base::FilePath list_path = subscription_path_callback_.Run(download_url)
-                                 .Append(kCustomSubscriptionListText);
-
-  background_task_runner_->PostTaskAndReplyWithResult(
-      FROM_HERE,
-      base::BindOnce(&base::ReplaceFile, downloaded_file, list_path, nullptr),
+      base::BindOnce(&ValidateAndReplaceList, downloaded_file, destination),
       base::BindOnce(&AdBlockSubscriptionDownloadManager::ReplaceFileCallback,
                      AsWeakPtr(), download_url));
 }
 
 void AdBlockSubscriptionDownloadManager::ReplaceFileCallback(
-    const GURL& download_url,
-    bool success) {
-  if (!success) {
-    on_download_failed_callback_.Run(download_url);
+    const GURL& download_url, std::string error) {
+  if (!error.empty()) {
+    ReportFailure(download_url, error);
     return;
   }
-
-  // this should send the data to subscription manager
+  last_errors_.erase(download_url);
+  cache_status_[download_url] = 1;
   on_download_succeeded_callback_.Run(download_url);
+}
+
+void AdBlockSubscriptionDownloadManager::ReportFailure(
+    const GURL& url, const std::string& reason) {
+  background_task_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&IsValidListFile, subscription_path_callback_.Run(url)
+                                         .Append(kCustomSubscriptionListText)),
+      base::BindOnce(&AdBlockSubscriptionDownloadManager::OnFailureCacheChecked,
+                     AsWeakPtr(), url, reason));
+}
+
+void AdBlockSubscriptionDownloadManager::OnFailureCacheChecked(
+    const GURL& url, const std::string& reason, bool valid) {
+  last_errors_[url] = reason;
+  cache_status_[url] = valid ? 1 : 0;
+  on_download_failed_callback_.Run(url);
+}
+
+std::string AdBlockSubscriptionDownloadManager::GetLastError(
+    const GURL& url) const {
+  auto it = last_errors_.find(url);
+  return it == last_errors_.end() ? std::string() : it->second;
+}
+
+int AdBlockSubscriptionDownloadManager::GetCacheStatus(const GURL& url) const {
+  auto it = cache_status_.find(url);
+  return it == cache_status_.end() ? -1 : it->second;
+}
+
+void AdBlockSubscriptionDownloadManager::CheckCache(
+    const GURL& url, base::OnceClosure on_checked) {
+  cache_status_[url] = -1;
+  background_task_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&IsValidListFile, subscription_path_callback_.Run(url)
+                                         .Append(kCustomSubscriptionListText)),
+      base::BindOnce(&AdBlockSubscriptionDownloadManager::OnCacheChecked,
+                     AsWeakPtr(), url, std::move(on_checked)));
+}
+
+void AdBlockSubscriptionDownloadManager::OnCacheChecked(
+    const GURL& url, base::OnceClosure on_checked, bool valid) {
+  cache_status_[url] = valid ? 1 : 0;
+  std::move(on_checked).Run();
 }
 
 }  // namespace brave_shields

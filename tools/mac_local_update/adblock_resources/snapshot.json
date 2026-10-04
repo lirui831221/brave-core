@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-10-04T01:37:24.468016+00:00",
+  "upstream": {
+    "adblock-resources": "6da9b247c3368baa8b4f24cd02046e18702a6527",
+    "brave-core-crx-packager": "3acdaca6f196cc8b1749ff4e963c46338465fbdf",
+    "uBlock": "4dfbb048607ec4fd19c1c252fd255df6cc653720"
+  },
+  "resources": 213,
+  "files": {
+    "UBLOCK-LICENSE.txt": "e73d33841f942fa73aa5a63d4a6399cc39a29564db1dbca0915485842fcb236d",
+    "SOURCES.txt": "c989e4b0d17aa5cc71f26de6b2064755389262c29a1d6755018b6b65aef90f9e",
+    "resources.json": "8dadaeb7ee00534e02f01b2f11ad4b9c8715962aac32083df51ce25199214869",
+    "youtube-filters.txt": "f978889576482af715a7521bbc0aea711f81a617ef609886400d9ff3603b13c9",
+    "generate_resources.mjs": "398cfc49ee346c80ec67e56315d1f14d11b7f754088402aefa4cf4944e0f173f",
+    "BRAVE-RESOURCES-LICENSE.txt": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5"
+  },
+  "youtubeRules": {
+    "ruleCount": 17,
+    "sourceInputs": [
+      {
+        "url": "https://raw.githubusercontent.com/brave/adblock-lists-mirror/ef13c66f8fb653058753d5b7a7f489e44fc08dbe/lists/ae9ffb3dd1624d8fa7e3fc3381ff11a4.txt",
+        "original_url": "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt",
+        "sha256": "86cb6ae50e9f114a1d735ca0345fe18d2d9b64da5c0a568a5cff8f4472d0bb85"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/brave/adblock-lists-mirror/ef13c66f8fb653058753d5b7a7f489e44fc08dbe/lists/b85138f942539c8e8909d0c42779d662.txt",
+        "original_url": "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-firstparty.txt",
+        "sha256": "3d8cbf10bccc0d2792accc2735ef1f1f65325e6e7c204e7d95931504aad53fad"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/uBlockOrigin/uAssets/8d4d9efaadc027129058b433811b545d9400bbd9/filters/quick-fixes.txt",
+        "commit": "8d4d9efaadc027129058b433811b545d9400bbd9",
+        "sha256": "e9198b97e0d728769426ae178443d94274e9ed0940537a2caaabba8aa58a0ff8"
+      }
+    ],
+    "scope": "www.youtube.com only",
+    "permissions": 0
+  }
+}

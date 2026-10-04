@@ -4,6 +4,7 @@
  * You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 import * as React from 'react'
+import { loadTimeData } from '$web-common/loadTimeData'
 import Button from '@brave/leo/react/button'
 
 import { formatString } from '$web-common/formatString'
@@ -28,9 +29,12 @@ export function MetricsStep(props: StepComponentProps) {
 
   useStepTransition()
 
-  const [webDiscoveryEnabled, setWebDiscoveryEnabled] = React.useState(false)
-  const [p3aEnabled, setP3AEnabled] = React.useState(true)
-  const [crashReportingEnabled, setCrashReportingEnabled] = React.useState(true)
+  const [webDiscoveryEnabled, setWebDiscoveryEnabled] = React.useState(loadTimeData.getBoolean('isLocalBuild')
+    ? loadTimeData.getBoolean('initialWebDiscoveryEnabled') : false)
+  const [p3aEnabled, setP3AEnabled] = React.useState(loadTimeData.getBoolean('isLocalBuild')
+    ? loadTimeData.getBoolean('initialP3AEnabled') : true)
+  const [crashReportingEnabled, setCrashReportingEnabled] = React.useState(loadTimeData.getBoolean('isLocalBuild')
+    ? loadTimeData.getBoolean('initialCrashReportingEnabled') : true)
 
   function saveAndContinue() {
     if (availableMetrics.webDiscovery) {

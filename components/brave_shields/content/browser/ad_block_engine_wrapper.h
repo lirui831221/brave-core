@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 
+#include <array>
 #include <memory>
 #include <optional>
 #include <string>
@@ -52,7 +53,9 @@ class AdBlockEngineWrapper {
 
   bool Load(bool is_default_engine,
             std::unique_ptr<rust::Box<adblock::FilterSet>> filter_set,
-            AdblockResourceStorageBox storage);
+            AdblockResourceStorageBox storage,
+            bool preserve_cached_rules = false,
+            bool validate_replacement = false);
 
   bool LoadDAT(bool is_default_engine,
                DATFileDataBuffer dat,
@@ -97,10 +100,18 @@ class AdBlockEngineWrapper {
                                  bool force_hide);
 
  private:
-  const std::unique_ptr<AdBlockEngine> default_engine_
+  std::unique_ptr<AdBlockEngine> default_engine_
       GUARDED_BY_CONTEXT(sequence_checker_);
-  const std::unique_ptr<AdBlockEngine> additional_filters_engine_
+  std::unique_ptr<AdBlockEngine> additional_filters_engine_
       GUARDED_BY_CONTEXT(sequence_checker_);
+
+  // An incomplete local rebuild must never discard unavailable component rules.
+  std::array<std::unique_ptr<AdBlockEngine>, 2> retained_cache_engines_
+      GUARDED_BY_CONTEXT(sequence_checker_);
+  std::array<bool, 2> loaded_from_dat_{};
+  std::array<bool, 2> local_rules_published_{};
+  std::array<bool, 2> complete_rules_published_{};
+  std::optional<adblock::RegexManagerDiscardPolicy> regex_discard_policy_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 };

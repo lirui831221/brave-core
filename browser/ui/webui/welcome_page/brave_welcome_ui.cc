@@ -10,6 +10,7 @@
 #include <string>
 
 #include "base/check.h"
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/task/single_thread_task_runner.h"
@@ -172,6 +173,24 @@ BraveWelcomeUI::BraveWelcomeUI(content::WebUI* web_ui, std::string_view name)
 
   // Add managed state information for welcome flow logic
   PrefService* local_state = g_browser_process->local_state();
+  bool is_local_build = false;
+#if BUILDFLAG(IS_MAC)
+  is_local_build =
+      base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build");
+#endif
+  source->AddBoolean("isLocalBuild", is_local_build);
+  source->AddBoolean("initialP3AEnabled",
+                     local_state->GetBoolean(p3a::kP3AEnabled));
+  source->AddBoolean(
+      "initialCrashReportingEnabled",
+      local_state->GetBoolean(metrics::prefs::kMetricsReportingEnabled));
+#if BUILDFLAG(ENABLE_WEB_DISCOVERY)
+  source->AddBoolean("initialWebDiscoveryEnabled",
+                     profile->GetPrefs()->GetBoolean(kWebDiscoveryEnabled));
+#else
+  source->AddBoolean("initialWebDiscoveryEnabled", false);
+#endif
+
   source->AddBoolean(
       "isWebDiscoveryEnabledManaged",
 #if BUILDFLAG(ENABLE_WEB_DISCOVERY)

@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>
 
+#include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/rand_util.h"
@@ -35,6 +36,13 @@ void AddDATBufferToFilterSet(uint8_t permission_mask,
                              rust::Box<adblock::FilterSet>* filter_set) {
   TRACE_EVENT("brave.adblock",
               "AddDATBufferToFilterSet_AdBlockComponentFiltersProvider", flow);
+#if BUILDFLAG(IS_MAC)
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build") &&
+      !adblock::validate_filter_list(buffer)) {
+    (*filter_set)->invalidate();
+    return;
+  }
+#endif
   (*filter_set)->add_filter_list_with_permissions(buffer, permission_mask);
 }
 

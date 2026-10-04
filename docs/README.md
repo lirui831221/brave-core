@@ -7,6 +7,11 @@ resources outside this repository, go to:
 
 ## Document Index
 
+### Custom macOS Releases
+
+- [mac brave 1.0.4](releases/mac-brave-1.0.4/README.md) - Tested arm64 prerelease,
+  source provenance, installation and known limitations.
+
 ### Checking Out and Patching
 
 - [Upgrading Chromium](chromium_version_upgrade.md) Upgrading `brave-core` to a

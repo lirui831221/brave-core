@@ -11,6 +11,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct BraveCoreResourceStorage {
     shared_storage: Arc<InMemoryResourceStorage>,
+    has_resources: bool,
 }
 
 impl ResourceStorageBackend for BraveCoreResourceStorage {
@@ -23,16 +24,20 @@ impl ResourceStorageBackend for BraveCoreResourceStorage {
 pub fn new_resource_storage(resources_json: &CxxString) -> Box<BraveCoreResourceStorage> {
     let resources = serde_json::from_str::<Vec<Resource>>(resources_json.to_str().unwrap_or("[]"))
         .unwrap_or_default();
-    let in_memory_storage = InMemoryResourceStorage::from_resources(resources);
+    let mut has_resources = !resources.is_empty();
+    let mut in_memory_storage = InMemoryResourceStorage::default();
+    for resource in resources {
+        has_resources &= in_memory_storage.add_resource(resource).is_ok();
+    }
     let shared_storage = Arc::new(in_memory_storage);
-    Box::new(BraveCoreResourceStorage { shared_storage })
+    Box::new(BraveCoreResourceStorage { shared_storage, has_resources })
 }
 
 /// Creates a new empty ResourceStorage.
 pub fn new_empty_resource_storage() -> Box<BraveCoreResourceStorage> {
     let in_memory_storage = InMemoryResourceStorage::from_resources(vec![]);
     let shared_storage = Arc::new(in_memory_storage);
-    Box::new(BraveCoreResourceStorage { shared_storage })
+    Box::new(BraveCoreResourceStorage { shared_storage, has_resources: false })
 }
 
 /// Clones a BraveCoreResourceStorage.
@@ -52,10 +57,14 @@ pub fn extend_resource_storage(
         if !additional_resources.is_empty() {
             let mut inner_storage = storage.shared_storage.as_ref().clone();
 
+            let mut has_resources = storage.has_resources;
             for resource in additional_resources {
-                let _ = inner_storage.add_resource(resource);
+                has_resources &= inner_storage.add_resource(resource).is_ok();
             }
-            return Box::new(BraveCoreResourceStorage { shared_storage: Arc::new(inner_storage) });
+            return Box::new(BraveCoreResourceStorage {
+                shared_storage: Arc::new(inner_storage),
+                has_resources,
+            });
         }
     }
     clone_resource_storage(storage)
@@ -63,4 +72,9 @@ pub fn extend_resource_storage(
 
 pub fn has_resource_for_testing(storage: &BraveCoreResourceStorage, name: &CxxString) -> bool {
     storage.get_resource(name.to_str().unwrap_or("")).is_some()
+}
+
+/// Empty or malformed resource documents cannot replace a cached rule layer.
+pub fn has_resources(storage: &BraveCoreResourceStorage) -> bool {
+    storage.has_resources
 }

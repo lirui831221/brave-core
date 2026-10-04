@@ -13,6 +13,7 @@
 
 #include "base/check.h"
 #include "base/check_op.h"
+#include "base/command_line.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
@@ -257,7 +258,12 @@ void PlaylistServiceFactory::RegisterProfilePrefs(
   registry->RegisterListPref(kPlaylistOrderPref, std::move(order_list));
 
   registry->RegisterDictionaryPref(kPlaylistItemsPref);
-  registry->RegisterBooleanPref(kPlaylistEnabledPref, true);
+  bool enabled_by_default = true;
+#if BUILDFLAG(IS_MAC)
+  enabled_by_default =
+      !base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build");
+#endif
+  registry->RegisterBooleanPref(kPlaylistEnabledPref, enabled_by_default);
   registry->RegisterBooleanPref(kPlaylistCacheByDefault, true);
   registry->RegisterStringPref(kPlaylistDefaultSaveTargetListID,
                                kDefaultPlaylistID);

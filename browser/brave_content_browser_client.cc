@@ -43,6 +43,7 @@
 #include "brave/browser/profiles/brave_renderer_updater_factory.h"
 #include "brave/browser/skus/skus_service_factory.h"
 #include "brave/browser/ui/brave_ui_features.h"
+#include "brave/browser/ui/webui/brave_web_ui_controller_factory.h"
 #include "brave/browser/ui/webui/skus_internals_ui.h"
 #include "brave/browser/updater/buildflags.h"
 #include "brave/browser/url_sanitizer/url_sanitizer_service_factory.h"
@@ -394,7 +395,7 @@ void BindCosmeticFiltersResources(
     content::RenderFrameHost* const frame_host,
     mojo::PendingReceiver<cosmetic_filters::mojom::CosmeticFiltersResources>
         receiver) {
-  g_brave_browser_process->ad_block_service()->AsyncCall(base::BindOnce(
+  g_brave_browser_process->ad_block_service()->AsyncCallWhenInitialized(base::BindOnce(
       &BindCosmeticFiltersResourcesOnTaskRunner, std::move(receiver)));
 }
 
@@ -1443,6 +1444,11 @@ bool BraveContentBrowserClient::HandleURLOverrideRewrite(
   if (!url->SchemeIs(content::kBraveUIScheme) &&
       !url->SchemeIs(content::kChromeUIScheme)) {
     return false;
+  }
+
+  if (BraveWebUIControllerFactory::MaybeRewriteLocalDisabledFeatureURL(
+          url, browser_context)) {
+    return true;
   }
 
   // brave://sync => brave://settings/braveSync

@@ -7,6 +7,7 @@
 
 #include <string_view>
 
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -180,6 +181,8 @@ constexpr char16_t kBraveAccountLearnMoreURL[] =
 
 void BraveAddCommonStrings(content::WebUIDataSource* html_source,
                            Profile* profile) {
+  html_source->AddBoolean("braveLocalBuild",
+      base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build"));
   webui::LocalizedString localized_strings[] = {
       {"importExtensions", IDS_SETTINGS_IMPORT_EXTENSIONS_CHECKBOX},
       {"importPayments", IDS_SETTINGS_IMPORT_PAYMENTS_CHECKBOX},
@@ -1096,6 +1099,15 @@ void BraveAddCommonStrings(content::WebUIDataSource* html_source,
        IDS_BRAVE_ADBLOCK_SUBSCRIBE_URL_DOWNLOAD_FAILED},
       {"adblockSubscribeUrlUpdateFailed",
        IDS_BRAVE_ADBLOCK_SUBSCRIBE_URL_UPDATE_FAILED},
+      {"adblockDiagnosticCacheAvailable", IDS_BRAVE_ADBLOCK_DIAGNOSTIC_CACHE_AVAILABLE},
+      {"adblockDiagnosticCacheUnavailable", IDS_BRAVE_ADBLOCK_DIAGNOSTIC_CACHE_UNAVAILABLE},
+      {"adblockDiagnosticCacheUnknown", IDS_BRAVE_ADBLOCK_DIAGNOSTIC_CACHE_UNKNOWN},
+      {"adblockDiagnosticInvalidList", IDS_BRAVE_ADBLOCK_DIAGNOSTIC_INVALID_LIST},
+      {"adblockDiagnosticCacheWriteFailed", IDS_BRAVE_ADBLOCK_DIAGNOSTIC_CACHE_WRITE_FAILED},
+      {"adblockDiagnosticHttpFailure", IDS_BRAVE_ADBLOCK_DIAGNOSTIC_HTTP_FAILURE},
+      {"adblockDiagnosticDownloadFailure", IDS_BRAVE_ADBLOCK_DIAGNOSTIC_DOWNLOAD_FAILURE},
+      {"localSafeBrowsingNotice", IDS_BRAVE_LOCAL_SAFE_BROWSING_NOTICE},
+      {"localSafeBrowsingStatus", IDS_BRAVE_LOCAL_SAFE_BROWSING_STATUS},
       {"adblockCustomListsLabel", IDS_BRAVE_ADBLOCK_CUSTOM_LISTS_LABEL},
       {"adblockDeveloperModeLabel", IDS_BRAVE_ADBLOCK_DEVELOPER_MODE_LABEL},
       {"adblockDeveloperModeDesc", IDS_BRAVE_ADBLOCK_DEVELOPER_MODE_DESC},

@@ -310,6 +310,11 @@ void AdblockDOMHandler::RefreshSubscriptionsList() {
     base::DictValue dict;
     dict.Set("subscription_url", subscription.subscription_url.spec());
     dict.Set("enabled", subscription.enabled);
+    dict.Set("last_error", subscription.last_error);
+    auto* manager = g_brave_browser_process->ad_block_service()
+                        ->subscription_service_manager()->download_manager();
+    dict.Set("cache_status", manager
+               ? manager->GetCacheStatus(subscription.subscription_url) : -1);
     dict.Set("last_update_attempt",
              subscription.last_update_attempt.InMillisecondsFSinceUnixEpoch());
     dict.Set("last_successful_update_attempt",

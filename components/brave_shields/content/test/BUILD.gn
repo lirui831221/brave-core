@@ -5,6 +5,64 @@
 
 import("//testing/test.gni")
 
+if (is_mac) {
+  test("adblock_cache_migration_unittests") {
+    sources = [
+      "../browser/ad_block_engine.cc",
+      "../browser/ad_block_engine_wrapper.cc",
+      "ad_block_cache_migration_unittest.cc",
+      "cosmetic_merge_unittest.cc",
+    ]
+    deps = [
+      "//base",
+      "//base/test:run_all_unittests",
+      "//base/test:test_support",
+      "//brave/components/brave_shields/core/browser",
+      "//brave/components/brave_shields/core/common/adblock",
+      "//net",
+      "//testing/gmock",
+      "//testing/gtest",
+      "//third_party/blink/public/mojom:mojom_platform_headers",
+      "//url",
+    ]
+  }
+
+  test("local_adblock_resources_unittests") {
+    sources = [
+      "../../core/browser/ad_block_default_resource_provider_unittest.cc",
+      "ad_block_startup_gate_unittest.cc",
+    ]
+    deps = [
+      "//base",
+      "//base/test:run_all_unittests",
+      "//base/test:test_support",
+      "//brave/components/brave_shields/core/browser",
+      "//brave/components/brave_shields/core/common/adblock",
+      "//testing/gtest",
+    ]
+  }
+}
+
+test("subscription_update_unittests") {
+  sources = [
+    "../browser/ad_block_subscription_download_manager.cc",
+    "ad_block_subscription_download_manager_unittest.cc",
+  ]
+  deps = [
+    "//base",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//brave/components/brave_shields/core/common/adblock",
+    "//components/download/public/background_service:public",
+    "//components/download/public/background_service/test:test_support",
+    "//components/keyed_service/core",
+    "//net/traffic_annotation",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//url",
+  ]
+}
+
 source_set("test_support") {
   testonly = true
 

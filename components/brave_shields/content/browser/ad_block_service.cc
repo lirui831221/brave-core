@@ -9,6 +9,7 @@
 #include <optional>
 #include <utility>
 
+#include "base/base_paths.h"
 #include "base/check.h"
 #include "base/check_is_test.h"
 #include "base/command_line.h"
@@ -16,15 +17,18 @@
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
+#include "base/json/values_util.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/path_service.h"
 #include "base/sequence_checker.h"
 #include "base/trace_event/trace_event.h"
 #include "brave/components/brave_shields/content/browser/ad_block_custom_filters_provider.h"
 #include "brave/components/brave_shields/content/browser/ad_block_engine.h"
 #include "brave/components/brave_shields/content/browser/ad_block_engine_wrapper.h"
 #include "brave/components/brave_shields/content/browser/ad_block_localhost_filters_provider.h"
+#include "brave/components/brave_shields/content/browser/ad_block_subscription_filters_provider.h"
 #include "brave/components/brave_shields/content/browser/ad_block_subscription_service_manager.h"
 #include "brave/components/brave_shields/core/browser/ad_block_component_filters_provider.h"
 #include "brave/components/brave_shields/core/browser/ad_block_component_service_manager.h"
@@ -38,12 +42,23 @@
 #include "brave/components/brave_shields/core/common/features.h"
 #include "brave/components/brave_shields/core/common/pref_names.h"
 #include "brave/components/constants/brave_switches.h"
+#include "build/build_config.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "services/network/public/cpp/features.h"
 
 namespace brave_shields {
+
+namespace {
+bool ShouldMigrateLocalRules() {
+#if BUILDFLAG(IS_MAC)
+  return base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build");
+#else
+  return false;
+#endif
+}
+}  // namespace
 
 AdBlockService::SourceProviderObserver::SourceProviderObserver(
     OnResourcesLoadedCallback on_resources_loaded,
@@ -109,10 +124,9 @@ void AdBlockService::SourceProviderObserver::LoadResources(
     std::unique_ptr<rust::Box<adblock::FilterSet>> filter_set) {
   // multiple AddObserver calls are ignored
   resource_provider_->AddObserver(this);
-  resource_provider_->LoadResources(
-      base::BindOnce(&SourceProviderObserver::OnAllLoaded,
-                     weak_factory_.GetWeakPtr(), can_cache,
-                     std::move(filter_set)));
+  resource_provider_->LoadResources(base::BindOnce(
+      &SourceProviderObserver::OnAllLoaded, weak_factory_.GetWeakPtr(),
+      can_cache, std::move(filter_set)));
 }
 
 void AdBlockService::SourceProviderObserver::OnDATFileRead(
@@ -252,6 +266,23 @@ AdBlockService::AdBlockService(
   custom_filters_provider_ = std::make_unique<AdBlockCustomFiltersProvider>(
       local_state_, filters_provider_manager_.get());
 
+#if BUILDFLAG(IS_MAC)
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build")) {
+    base::FilePath assets;
+    if (base::PathService::Get(base::DIR_ASSETS, &assets)) {
+      // Signed, reviewed YouTube rules use the existing subscription parser and
+      // permission level. They never overwrite the user's custom filters.
+      local_youtube_filters_provider_ =
+          std::make_unique<AdBlockSubscriptionFiltersProvider>(
+              filters_provider_manager_.get(),
+              assets.AppendASCII("brave_local_adblock")
+                  .AppendASCII("youtube-filters.txt"),
+              base::BindRepeating([](const adblock::FilterListMetadata&) {}),
+              /*require_valid_rules=*/true);
+    }
+  }
+#endif
+
   if (base::FeatureList::IsEnabled(
           network::features::kLocalNetworkAccessChecks) &&
       !network::features::kLocalNetworkAccessChecksWarn.Get() &&
@@ -285,6 +316,20 @@ AdBlockService::AdBlockService(
 
 AdBlockService::~AdBlockService() = default;
 
+void AdBlockService::AsyncCallWhenInitialized(
+    base::OnceCallback<void(AdBlockEngineWrapper* wrapper)> task) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+#if BUILDFLAG(IS_MAC)
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build")) {
+    startup_gate_.Post(base::BindOnce(&AdBlockService::AsyncCall,
+                                      weak_factory_.GetWeakPtr(),
+                                      std::move(task)));
+    return;
+  }
+#endif
+  AsyncCall(std::move(task));
+}
+
 void AdBlockService::OnResourcesLoaded(
     bool is_default_engine,
     bool can_cache,
@@ -310,17 +355,18 @@ void AdBlockService::OnResourcesLoaded(
     // A pre-catalog fallback only contains local filters. Do not persist it as
     // a complete engine that would suppress filter loading on the next start.
     bool should_cache =
-        base::FeatureList::IsEnabled(features::kAdblockDATCache) &&
-        can_cache;
+        base::FeatureList::IsEnabled(features::kAdblockDATCache) && can_cache;
     AsyncCallAndReplyWithResult(
         base::BindOnce(
-            [](bool is_default, bool cache,
+            [](bool is_default, bool cache, bool preserve_cached_rules,
+               bool validate_replacement,
                std::unique_ptr<rust::Box<adblock::FilterSet>> fs,
                AdblockResourceStorageBox s, AdBlockEngineWrapper* wrapper)
                 -> std::pair<FilterListLoadResult,
                              std::optional<DATFileDataBuffer>> {
               bool resources_only = !fs;
-              if (!wrapper->Load(is_default, std::move(fs), std::move(s))) {
+              if (!wrapper->Load(is_default, std::move(fs), std::move(s),
+                                 preserve_cached_rules, validate_replacement)) {
                 return {FilterListLoadResult::kFailed, std::nullopt};
               }
               if (resources_only) {
@@ -332,8 +378,9 @@ void AdBlockService::OnResourcesLoaded(
               return {FilterListLoadResult::kLoaded,
                       wrapper->Serialize(is_default)};
             },
-            is_default_engine, should_cache, std::move(filter_set),
-            std::move(storage)),
+            is_default_engine, should_cache,
+            ShouldMigrateLocalRules() && !can_cache, ShouldMigrateLocalRules(),
+            std::move(filter_set), std::move(storage)),
         base::BindOnce(&AdBlockService::OnEngineLoaded,
                        weak_factory_.GetWeakPtr(), is_default_engine));
   }
@@ -341,13 +388,17 @@ void AdBlockService::OnResourcesLoaded(
 
 void AdBlockService::OnDATLoaded(bool is_default_engine, bool success) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (success && !ShouldMigrateLocalRules()) {
+    startup_gate_.OnRulesLoaded(is_default_engine);
+  }
   if (is_default_engine) {
     default_dat_loaded_for_testing_ = true;
   } else {
     additional_dat_loaded_for_testing_ = true;
   }
-  // If the cached DAT failed to load, fall back to loading from filter lists.
-  if (!success) {
+  // Local builds refresh live lists even with a valid cache. The worker retains
+  // cached engines until a complete replacement is available; never erase DATs.
+  if (!success || ShouldMigrateLocalRules()) {
     component_service_manager_->AllowFilterSetLoadWithoutCatalog(
         is_default_engine);
     if (is_default_engine) {
@@ -366,6 +417,12 @@ void AdBlockService::OnEngineLoaded(
     std::pair<FilterListLoadResult, std::optional<DATFileDataBuffer>> result) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto [load_result, serialized_dat] = std::move(result);
+
+  // Cached rules alone are insufficient: scriptlet resources load separately.
+  startup_gate_.OnResourcesLoaded(is_default_engine);
+  if (load_result != FilterListLoadResult::kResourcesOnly) {
+    startup_gate_.OnRulesLoaded(is_default_engine);
+  }
 
   if (load_result != FilterListLoadResult::kResourcesOnly) {
     if (is_default_engine) {
@@ -474,7 +531,27 @@ void RegisterPrefsForAdBlockService(PrefRegistrySimple* registry) {
       prefs::kAdBlockMobileNotificationsListSettingTouched, false);
   registry->RegisterStringPref(prefs::kAdBlockCustomFilters, std::string());
   registry->RegisterDictionaryPref(prefs::kAdBlockRegionalFilters);
-  registry->RegisterDictionaryPref(prefs::kAdBlockListSubscriptions);
+  base::DictValue subscription_defaults;
+#if BUILDFLAG(IS_MAC)
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build")) {
+    // Defaults only: an existing saved subscription dictionary, including an
+    // explicitly empty one, takes precedence. No user list is added twice.
+    for (const char* url :
+         {"https://easylist.to/easylist/easylist.txt",
+          "https://easylist.to/easylist/easyprivacy.txt",
+          "https://easylist-downloads.adblockplus.org/easylistchina.txt"}) {
+      base::DictValue info;
+      info.Set("enabled", true);
+      info.Set("last_update_attempt", base::TimeToValue(base::Time()));
+      info.Set("last_successful_update_attempt",
+               base::TimeToValue(base::Time()));
+      info.Set("expires", 24);
+      subscription_defaults.Set(url, std::move(info));
+    }
+  }
+#endif
+  registry->RegisterDictionaryPref(prefs::kAdBlockListSubscriptions,
+                                   std::move(subscription_defaults));
   registry->RegisterBooleanPref(prefs::kAdBlockCheckedDefaultRegion, false);
   registry->RegisterBooleanPref(prefs::kAdBlockCheckedAllDefaultRegions, false);
   registry->RegisterBooleanPref(prefs::kAdBlockOnlyModeEnabled, false);

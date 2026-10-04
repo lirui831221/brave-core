@@ -8,6 +8,8 @@
 namespace brave_policy {
 std::unique_ptr<policy::ConfigurationPolicyProvider>
 CreateBraveProfilePolicyProvider();
+std::unique_ptr<policy::ConfigurationPolicyProvider>
+CreateLocalBuildPolicyProvider();
 }  // namespace brave_policy
 
 // Create and Init the Brave Profile Policy Provider which is used
@@ -19,7 +21,13 @@ CreateBraveProfilePolicyProvider();
   brave_profile_policy_provider_ = provider.get();                  \
   policy_providers_.push_back(provider.get());                      \
   provider->Init(schema_registry);                                  \
-  wrapped_policy_providers_.push_back(std::move(provider));
+  wrapped_policy_providers_.push_back(std::move(provider));         \
+  if (auto local_provider =                                        \
+          brave_policy::CreateLocalBuildPolicyProvider()) {         \
+    policy_providers_.push_back(local_provider.get());              \
+    local_provider->Init(schema_registry);                          \
+    wrapped_policy_providers_.push_back(std::move(local_provider));  \
+  }
 
 #include <chrome/browser/policy/profile_policy_connector.cc>  // IWYU pragma: export
 

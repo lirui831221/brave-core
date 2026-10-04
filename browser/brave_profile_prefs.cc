@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "brave/browser/brave_browser_features.h"
 #include "brave/browser/brave_shields/brave_shields_web_contents_observer.h"
@@ -48,6 +49,7 @@
 #include "brave/components/local_ai/buildflags/buildflags.h"
 #include "brave/components/ntp_background_images/browser/view_counter_service.h"
 #include "brave/components/ntp_background_images/buildflags/buildflags.h"
+#include "brave/components/ntp_background_images/common/pref_names.h"
 #include "brave/components/ntp_background_images/common/view_counter_pref_registry.h"
 #include "brave/components/omnibox/browser/brave_omnibox_prefs.h"
 #include "brave/components/psst/buildflags/buildflags.h"
@@ -109,6 +111,7 @@
 
 #if BUILDFLAG(ENABLE_BRAVE_ADS)
 #include "brave/components/brave_ads/core/public/prefs/obsolete_pref_util.h"
+#include "brave/components/brave_ads/core/public/prefs/pref_names.h"
 #include "brave/components/brave_ads/core/public/prefs/pref_registry.h"
 #endif
 
@@ -185,6 +188,29 @@ namespace brave {
 namespace {
 
 void OverrideDefaultPrefValues(user_prefs::PrefRegistrySyncable* registry) {
+#if BUILDFLAG(IS_MAC)
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch("brave-local-build")) {
+    // Defaults keep explicit user choices intact when updating an existing profile.
+#if BUILDFLAG(ENABLE_BRAVE_WAYBACK_MACHINE)
+    registry->SetDefaultPrefValue(kBraveWaybackMachineEnabled,
+                                  base::Value(false));
+#endif
+
+    registry->SetDefaultPrefValue(kNewTabPageShowRewards, base::Value(false));
+#if BUILDFLAG(ENABLE_BRAVE_TALK)
+    registry->SetDefaultPrefValue(brave_talk::prefs::kNewTabPageShowBraveTalk,
+                                  base::Value(false));
+#endif
+#if BUILDFLAG(ENABLE_BRAVE_VPN)
+    registry->SetDefaultPrefValue(kNewTabPageShowBraveVPN, base::Value(false));
+#endif
+#if BUILDFLAG(ENABLE_BRAVE_ADS)
+    registry->SetDefaultPrefValue(brave_ads::prefs::kSponsoredEnabled,
+                                  base::Value(false));
+#endif
+  }
+#endif
+
 #if BUILDFLAG(IS_ANDROID)
   // Clear default popular sites
   registry->SetDefaultPrefValue(ntp_tiles::prefs::kPopularSitesJsonPref,
