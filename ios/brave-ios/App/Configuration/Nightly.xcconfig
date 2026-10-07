@@ -7,7 +7,7 @@
 
 #include "Base.xcconfig"
 
-MOZ_BUNDLE_DISPLAY_NAME = Brave Nightly
+MOZ_BUNDLE_DISPLAY_NAME = 油管X
 
 BRAVE_URL_SCHEME = brave-nightly
 

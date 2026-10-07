@@ -75,7 +75,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>This lets you take and upload photos.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>This authenticates your access to Brave</string>
+	<string>This authenticates your access to 油管X</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Websites you visit may request your location.</string>
 	<key>NSMicrophoneUsageDescription</key>
