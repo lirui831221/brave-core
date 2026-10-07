@@ -5,7 +5,7 @@
 #include "Base.xcconfig"
 
 // [brave-ios-trim] Personal YouTube-first build display name.
-MOZ_BUNDLE_DISPLAY_NAME = 油管
+MOZ_BUNDLE_DISPLAY_NAME = 油管X
 
 // Bundle Identifier
 // [brave-ios-trim] Keep the same team-owned bundle ID as the Debug build so a
