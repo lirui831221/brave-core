@@ -100,11 +100,9 @@ struct CustomScriptlet: Identifiable, Hashable {
   ///
   /// We have a max number of lines for adblock rules because too many lines will kill the editor.
   ///
-  /// [brave-ios-trim] v11: raised 10k -> 80k. This build injects the full
-  /// official network-rule set (~64k lines) alongside our YouTube rules;
-  /// the old cap silently rejected the whole injection. The editor itself
-  /// is never opened in this trimmed build, so the original reason for the
-  /// small cap (editor performance) does not apply here.
+  /// [brave-ios-trim] v12 no longer stores built-in rules here. The temporary
+  /// 80k limit remains for users who edited a legacy v11 combined list; their
+  /// data must remain editable until they choose to trim or replace it.
   static let maxNumberOfCustomRulesLines = 80_000
 
   /// Store the current version of the custom rules so we know if we should upgrade it

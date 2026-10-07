@@ -16,13 +16,9 @@ public actor LaunchHelper {
   private var loadTask: Task<(), Never>?
   private var areAdBlockServicesReady = false
 
-  // [brave-ios-trim] Bundled YouTube ad-blocking rules, ported from
-  // mac-brave-1.0.4 (`brave_local_adblock/youtube-filters.txt`).
-  // Injection follows the same conservative principles as the macOS build:
-  //  - never overwrite a user's own custom rules (injection is skipped if the
-  //    user has saved any custom rules of their own)
-  //  - idempotent: a matching version is never re-injected
-  //  - version bump triggers recompile through the standard pipeline
+  // [brave-ios-trim] v12 stores distribution-managed rules independently from
+  // user-authored custom rules. A candidate must validate and trial-compile in
+  // BuiltInFilterListStorage before its active cache is atomically replaced.
   private enum BundledYouTubeRules {
     // v1: Mac 1.0.4 base snapshot (www.youtube.com only).
     // v2: P0 — mobile domain adaptation, anti-anti-adblock, network-layer blocks.
@@ -48,70 +44,48 @@ public actor LaunchHelper {
     //      Injection = our YouTube rules (top, highest priority)
     //      followed by the full official set.
     // v11: slim the official set to network-block rules only (~64k lines).
-    //      The full 137k-line set failed to save — the WebKit content
-    //      blocker conversion caps out — and cosmetic rules are already
-    //      covered by the C++ engine's separate pipeline.
-    //      ALSO: CustomFilterListStorage.maxNumberOfCustomRulesLines was
-    //      10k and silently rejected every injection over it. Raised to
-    //      80k so the 64k-line official set actually saves.
-    static let version = 11
+    // v12: separate managed and user rule storage; validate, trial-compile,
+    //      atomically promote, retain the previous cache and persist diagnostics.
+    static let version = 12
 
-    static func injectIfAllowed() async {
+    static func installOrUpdate() async {
       do {
-        // [brave-ios-trim] Fix: distinguish OUR previous injection from a
-        // user's own rules. Our injections are recorded by the version pref;
-        // only treat the saved rules as user-owned when the pref says we have
-        // never injected (version 0) yet rules exist.
         let injectedVersion = Preferences.Option<Int>(
-          key: "brave-ios-trim.youtube-rules-version", default: 0
+          key: "brave-ios-trim.youtube-rules-version",
+          default: 0
         )
 
-        let existingRules = try await CustomFilterListStorage.shared.loadCustomRules()
+        let bundledRules = try BuiltInFilterListStorage.bundledSnapshot()
 
-        if existingRules != nil && !existingRules!.isEmpty && injectedVersion.value == 0 {
-          // Rules exist but we never injected them: user-owned, do not touch.
-          ContentBlockerManager.log.debug(
-            "Bundled YouTube rules skipped: user has custom rules")
+        let status = await BuiltInFilterListStorage.shared.diagnosticStatus()
+        guard injectedVersion.value < version || status.activeVersion != "\(version)" else {
           return
         }
 
-        guard
-          let bundledURL = Bundle.module.url(
-            forResource: "youtube-filters", withExtension: "txt")
-        else {
-          ContentBlockerManager.log.error("Bundled YouTube rules not found")
-          return
+        // Capture the legacy v11 file before installation. It is removed only
+        // when it exactly equals our known bundle and the old injection marker
+        // proves that this app created it. Modified or user-owned rules remain.
+        let legacyCustomRules = try await CustomFilterListStorage.shared.loadCustomRules()
+        let mayRemoveLegacyBundle =
+          injectedVersion.value > 0 && injectedVersion.value < version
+          && legacyCustomRules == bundledRules
+
+        _ = try await BuiltInFilterListStorage.shared.installBundledCandidate(
+          bundledRules,
+          version: "\(version)"
+        )
+
+        if mayRemoveLegacyBundle {
+          try await CustomFilterListStorage.shared.deleteCustomRules()
         }
-
-        var bundledRules = try String(contentsOf: bundledURL, encoding: .utf8)
-
-        // [brave-ios-trim] v10: append the official default filter set —
-        // the same rule sources the stock App Store build downloads from
-        // Brave's S3 (which needs an official service key we do not have).
-        if let officialURL = Bundle.module.url(
-          forResource: "official-filters", withExtension: "txt")
-        {
-          let officialRules = try String(contentsOf: officialURL, encoding: .utf8)
-          bundledRules += "\n\n! === [brave-ios-trim] official default set ===\n"
-          bundledRules += officialRules
-        }
-
-        guard injectedVersion.value < version else {
-          // Up to date; nothing to do. Never removed on downgrade.
-          return
-        }
-
-        // The save API validates rules, bumps the internal version and
-        // recompiles both the AdBlockEngine and Content Blocker rule lists.
-        try await CustomFilterListStorage.shared.save(customRules: bundledRules)
         injectedVersion.value = version
         ContentBlockerManager.log.info(
-          "Bundled YouTube rules injected (v\(version))")
+          "Built-in protection rules installed (v\(version))"
+        )
       } catch {
-        // A failed injection must never break the launch sequence; the
-        // standard lists still provide blocking without these rules.
+        // The old active cache or legacy v11 custom rules remain available.
         ContentBlockerManager.log.error(
-          "Failed to inject bundled YouTube rules: \(String(describing: error))"
+          "Failed to update built-in protection rules: \(String(describing: error))"
         )
       }
     }
@@ -142,16 +116,16 @@ public actor LaunchHelper {
       // The scriptlets are loaded before the resources as they are injected into them
       await CustomFilterListStorage.shared.loadCachedCustomScriptlets()
       await AdBlockGroupsManager.shared.loadResourcesFromCache()
+      await BuiltInFilterListStorage.shared.loadActiveRules()
       async let loadEngines: Void = AdBlockGroupsManager.shared.loadEnginesFromCache()
       async let adblockResourceCache: Void = AdBlockGroupsManager.shared.loadBundledDataIfNeeded()
       _ = await (loadEngines, adblockResourceCache)
       Self.signpost.emitEvent("loadedCachedData", id: signpostID, "Loaded cached data")
 
-      // [brave-ios-trim] Inject the bundled YouTube rules after the cached
-      // data is loaded but before post-load tasks, so the first compile of
-      // the session already includes them (first-screen timing parity with
-      // the macOS 1.0.4 fix).
-      await BundledYouTubeRules.injectIfAllowed()
+      // Install bundled updates before post-load tasks. Existing active rules
+      // were already registered above, so a bad candidate cannot remove first-
+      // screen protection.
+      await BundledYouTubeRules.installOrUpdate()
 
       ContentBlockerManager.log.debug("Loaded blocking launch data")
 

@@ -74,6 +74,7 @@ struct FilterListsView: View {
   @State private var filterListsUpdateStatus = FilterListUpdateStatus.unknown
   @State private var customFilterListsUpdateStatus = FilterListUpdateStatus.unknown
   @State private var customFilterListsUpdateError: Error? = nil
+  @State private var builtInRuleStatus = BuiltInFilterListStorage.DiagnosticStatus.empty
   @State private var searchText = ""
 
   var body: some View {
@@ -106,6 +107,15 @@ struct FilterListsView: View {
       }
 
       if searchText.isEmpty {
+        Section {
+          builtInRulesStatusRows
+        } header: {
+          SectionHeaderView(
+            title: "Built-in protection rules",
+            description: "Managed separately from rules you create or subscribe to."
+          )
+        }
+
         Section {
           customFiltersRows
         } header: {
@@ -154,6 +164,47 @@ struct FilterListsView: View {
     }
     .task {
       await loadCustomRules()
+      builtInRuleStatus = await BuiltInFilterListStorage.shared.diagnosticStatus()
+    }
+  }
+
+  @ViewBuilder private var builtInRulesStatusRows: some View {
+    if let version = builtInRuleStatus.activeVersion {
+      LabeledContent("Active version") {
+        Text(verbatim: "v\(version) · \(builtInRuleStatus.activeRuleCount) rules")
+      }
+    } else {
+      LabeledContent("Status") {
+        Text(verbatim: "No validated cache")
+          .foregroundStyle(Color(UIColor(braveSystemName: .systemfeedbackErrorText)))
+      }
+    }
+
+    if let lastSuccessDate = builtInRuleStatus.lastSuccessDate {
+      LabeledContent("Last successful update") {
+        Text(
+          verbatim: Self.dateFormatter.localizedString(
+            for: lastSuccessDate,
+            relativeTo: Date()
+          )
+        )
+      }
+    }
+
+    if let reason = builtInRuleStatus.lastFailureReason,
+      let failureDate = builtInRuleStatus.lastFailureDate
+    {
+      VStack(alignment: .leading, spacing: 4) {
+        Text(verbatim: "Last failed update")
+        Text(verbatim: reason.displayDescription)
+          .font(.caption)
+          .foregroundStyle(Color(UIColor(braveSystemName: .systemfeedbackErrorText)))
+        Text(
+          verbatim: Self.dateFormatter.localizedString(for: failureDate, relativeTo: Date())
+        )
+        .font(.caption)
+        .foregroundStyle(.secondary)
+      }
     }
   }
 

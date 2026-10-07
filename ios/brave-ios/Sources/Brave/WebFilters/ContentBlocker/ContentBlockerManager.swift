@@ -116,6 +116,8 @@ import os.log
           return [Self.filterListPrefix, "url", uuid].joined(separator: "-")
         case .filterListText:
           return [Self.filterListPrefix, "text"].joined(separator: "-")
+        case .bundledRules:
+          return [Self.filterListPrefix, "bundled-rules"].joined(separator: "-")
         case .slimList:
           return [Self.filterListPrefix, "slim-list"].joined(separator: "-")
         }

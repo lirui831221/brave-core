@@ -17,6 +17,7 @@ public actor GroupedAdBlockEngine {
     case filterList(componentId: String)
     case filterListURL(uuid: String)
     case filterListText
+    case bundledRules
     case slimList
 
     public var debugDescription: String {
@@ -24,6 +25,7 @@ public actor GroupedAdBlockEngine {
       case .filterList(let componentId): return componentId
       case .filterListURL(let uuid): return uuid
       case .filterListText: return "filter-list-text"
+      case .bundledRules: return "bundled-rules"
       case .slimList: return "slim-list"
       }
     }

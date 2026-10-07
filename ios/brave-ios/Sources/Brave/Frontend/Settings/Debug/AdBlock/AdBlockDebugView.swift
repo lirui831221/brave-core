@@ -184,6 +184,8 @@ private struct CompileContentBlockersSectionView: View {
       )?.entry.title ?? componentId
     case .filterListText:
       return "filterListText"
+    case .bundledRules:
+      return "bundledRules"
     case .filterListURL(let uuid):
       return CustomFilterListStorage.shared.filterListsURLs.first(
         where: { $0.setting.uuid == uuid }

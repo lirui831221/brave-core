@@ -801,6 +801,9 @@ extension AdBlockEngineManager.FileInfo {
   var enabledSources: [GroupedAdBlockEngine.Source] {
     var enabledSources = FilterListStorage.shared.enabledSources
     enabledSources.append(contentsOf: CustomFilterListStorage.shared.enabledSources)
+    if BuiltInFilterListStorage.hasActiveRules {
+      enabledSources.append(.bundledRules)
+    }
     return enabledSources
   }
 
@@ -820,6 +823,7 @@ extension AdBlockEngineManager.FileInfo {
     }
     sources.append(contentsOf: FilterListStorage.shared.sources(for: engineType))
     sources.append(contentsOf: CustomFilterListStorage.shared.sources(for: engineType))
+    sources.append(.bundledRules)
     return sources
   }
 
@@ -875,7 +879,7 @@ extension GroupedAdBlockEngine.Source {
       return false
     case .standard:
       switch self {
-      case .filterList, .slimList: return false
+      case .filterList, .bundledRules, .slimList: return false
       case .filterListText, .filterListURL: return true
       }
     }

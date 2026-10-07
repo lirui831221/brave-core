@@ -691,7 +691,7 @@ extension GroupedAdBlockEngine.Source {
     case .filterList(let componentId):
       // We replace the default filter list with the slim list when we compile content blockers
       return AdblockFilterListCatalogEntry.defaultListComponentID == componentId ? .slimList : self
-    case .filterListURL, .filterListText, .slimList:
+    case .filterListURL, .filterListText, .bundledRules, .slimList:
       return self
     }
   }
