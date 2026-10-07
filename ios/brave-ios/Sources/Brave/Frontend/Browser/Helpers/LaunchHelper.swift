@@ -151,6 +151,7 @@ public actor LaunchHelper {
       await FilterListResourceDownloader.shared.start(with: adBlockService)
       await FilterListCustomURLDownloader.shared.startFetching()
       await AdblockResourceDownloader.shared.startFetching()
+      await BuiltInFilterListStorage.shared.startAutomaticUpdates()
       // It's important to do this at the end to ensure we have our lists loaded
       await AdBlockGroupsManager.shared.cleaupInvalidRuleLists()
       Self.signpost.endInterval("nonBlockingLaunchTask", state)

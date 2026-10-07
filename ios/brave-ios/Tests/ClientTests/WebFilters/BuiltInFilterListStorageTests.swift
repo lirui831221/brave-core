@@ -3,6 +3,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+import CryptoKit
 import Foundation
 import XCTest
 
@@ -33,6 +34,32 @@ final class BuiltInFilterListStorageTests: XCTestCase {
       if version == failingVersion {
         throw BuiltInFilterListStorage.StoreError.activationFailed
       }
+    }
+  }
+
+  private actor SignedNetworkFixture {
+    var manifestResponses: [BuiltInFilterListStorage.DownloadPayload]
+    let rulesResponse: BuiltInFilterListStorage.DownloadPayload
+    private(set) var receivedETags: [String?] = []
+    private(set) var ruleDownloadCount = 0
+
+    init(
+      manifestResponses: [BuiltInFilterListStorage.DownloadPayload],
+      rulesResponse: BuiltInFilterListStorage.DownloadPayload
+    ) {
+      self.manifestResponses = manifestResponses
+      self.rulesResponse = rulesResponse
+    }
+
+    func downloadManifest(etag: String?) throws -> BuiltInFilterListStorage.DownloadPayload {
+      receivedETags.append(etag)
+      guard !manifestResponses.isEmpty else { throw URLError(.resourceUnavailable) }
+      return manifestResponses.removeFirst()
+    }
+
+    func downloadRules() -> BuiltInFilterListStorage.DownloadPayload {
+      ruleDownloadCount += 1
+      return rulesResponse
     }
   }
 
@@ -263,6 +290,356 @@ final class BuiltInFilterListStorageTests: XCTestCase {
     let status = await store.diagnosticStatus()
     XCTAssertEqual(activeRules, "||old.example^")
     XCTAssertEqual(status.lastFailureReason, .insecureSource)
+  }
+
+  func testSignedManifestUpgradeStoresETagAndKeepsUserRulesSeparate() async throws {
+    let privateKey = Curve25519.Signing.PrivateKey()
+    let newRules = Data("||signed.example^\nsigned.example##.promotion".utf8)
+    let manifest = try makeSignedManifest(
+      privateKey: privateKey,
+      rules: newRules,
+      version: "12.1"
+    )
+    let fixture = makeSignedFixture(manifest: manifest, rules: newRules, etag: #""rules-12.1""#)
+    let root = temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let store = makeSignedStore(root: root, fixture: fixture, privateKey: privateKey)
+    _ = try await store.installBundledCandidate("||old.example^", version: "12")
+
+    let result = try await store.refresh(
+      manifestURL: XCTUnwrap(URL(string: "https://updates.example/manifest.json")),
+      force: true
+    )
+
+    XCTAssertEqual(result.outcome, .updated)
+    XCTAssertEqual(result.status.activeVersion, "12.1")
+    XCTAssertEqual(result.status.manifestETag, #""rules-12.1""#)
+    XCTAssertEqual(result.status.lastCheckDate, fixedDate)
+    let activeRules = try await store.activeRules()
+    let previousRules = try await store.previousRules()
+    let ruleDownloadCount = await fixture.ruleDownloadCount
+    XCTAssertEqual(activeRules, String(decoding: newRules, as: UTF8.self))
+    XCTAssertEqual(previousRules, "||old.example^")
+    XCTAssertEqual(ruleDownloadCount, 1)
+    try assertNoCandidateFiles(in: root)
+  }
+
+  func testInvalidSignatureNeverDownloadsOrReplacesRules() async throws {
+    let privateKey = Curve25519.Signing.PrivateKey()
+    let rules = Data("||signed.example^".utf8)
+    var envelope = try JSONDecoder().decode(
+      BuiltInFilterListStorage.SignedManifestEnvelope.self,
+      from: makeSignedManifest(privateKey: privateKey, rules: rules, version: "12.1")
+    )
+    envelope = .init(
+      payload: envelope.payload,
+      signature: Data(repeating: 0, count: 64).base64EncodedString()
+    )
+    let manifest = try JSONEncoder().encode(envelope)
+    let fixture = makeSignedFixture(manifest: manifest, rules: rules)
+    let store = makeSignedStore(
+      root: temporaryDirectory.appendingPathComponent(UUID().uuidString),
+      fixture: fixture,
+      privateKey: privateKey
+    )
+    _ = try await store.installBundledCandidate("||old.example^", version: "12")
+
+    await assertRefreshFailure(store: store, expectedReason: .invalidSignature)
+    let ruleDownloadCount = await fixture.ruleDownloadCount
+    XCTAssertEqual(ruleDownloadCount, 0)
+  }
+
+  func testSignedHashAndSizeMismatchKeepLastKnownGoodRules() async throws {
+    let privateKey = Curve25519.Signing.PrivateKey()
+    let rules = Data("||signed.example^".utf8)
+    let badHashManifest = try makeSignedManifest(
+      privateKey: privateKey,
+      rules: rules,
+      version: "12.1",
+      declaredSHA256: String(repeating: "0", count: 64)
+    )
+    let badHashStore = makeSignedStore(
+      root: temporaryDirectory.appendingPathComponent(UUID().uuidString),
+      fixture: makeSignedFixture(manifest: badHashManifest, rules: rules),
+      privateKey: privateKey
+    )
+    _ = try await badHashStore.installBundledCandidate("||old.example^", version: "12")
+    await assertRefreshFailure(store: badHashStore, expectedReason: .hashMismatch)
+
+    let badSizeManifest = try makeSignedManifest(
+      privateKey: privateKey,
+      rules: rules,
+      version: "12.1",
+      declaredByteCount: rules.count + 1
+    )
+    let badSizeStore = makeSignedStore(
+      root: temporaryDirectory.appendingPathComponent(UUID().uuidString),
+      fixture: makeSignedFixture(manifest: badSizeManifest, rules: rules),
+      privateKey: privateKey
+    )
+    _ = try await badSizeStore.installBundledCandidate("||old.example^", version: "12")
+    await assertRefreshFailure(store: badSizeStore, expectedReason: .sizeMismatch)
+  }
+
+  func testDowngradeReusedVersionAndIncompatibleAppAreRejectedBeforeRuleDownload() async throws {
+    let privateKey = Curve25519.Signing.PrivateKey()
+    let rules = Data("||signed.example^".utf8)
+
+    for (version, minimumAppVersion, expectedReason) in [
+      ("11.9", "1.98.0", BuiltInFilterListStorage.FailureReason.versionRollback),
+      ("12", "1.98.0", .versionRollback),
+      ("12.1", "99.0.0", .incompatibleAppVersion),
+    ] {
+      let manifest = try makeSignedManifest(
+        privateKey: privateKey,
+        rules: rules,
+        version: version,
+        minimumAppVersion: minimumAppVersion
+      )
+      let fixture = makeSignedFixture(manifest: manifest, rules: rules)
+      let store = makeSignedStore(
+        root: temporaryDirectory.appendingPathComponent(UUID().uuidString),
+        fixture: fixture,
+        privateKey: privateKey
+      )
+      _ = try await store.installBundledCandidate("||old.example^", version: "12")
+
+      await assertRefreshFailure(store: store, expectedReason: expectedReason)
+      let ruleDownloadCount = await fixture.ruleDownloadCount
+      XCTAssertEqual(ruleDownloadCount, 0)
+    }
+  }
+
+  func testRefreshIntervalAndETagNotModifiedAvoidRuleRedownload() async throws {
+    let privateKey = Curve25519.Signing.PrivateKey()
+    let rules = Data("||signed.example^".utf8)
+    let manifest = try makeSignedManifest(
+      privateKey: privateKey,
+      rules: rules,
+      version: "12.1"
+    )
+    let manifestURL = try XCTUnwrap(URL(string: "https://updates.example/manifest.json"))
+    let rulesURL = try XCTUnwrap(URL(string: "https://updates.example/rules.txt"))
+    let fixture = SignedNetworkFixture(
+      manifestResponses: [
+        .init(
+          data: manifest,
+          statusCode: 200,
+          mimeType: "application/json",
+          etag: #""rules-12.1""#,
+          finalURL: manifestURL
+        ),
+        .init(
+          data: Data(),
+          statusCode: 304,
+          mimeType: nil,
+          etag: #""rules-12.1""#,
+          finalURL: manifestURL
+        ),
+      ],
+      rulesResponse: .init(
+        data: rules,
+        statusCode: 200,
+        mimeType: "text/plain",
+        finalURL: rulesURL
+      )
+    )
+    let store = makeSignedStore(
+      root: temporaryDirectory.appendingPathComponent(UUID().uuidString),
+      fixture: fixture,
+      privateKey: privateKey
+    )
+    _ = try await store.installBundledCandidate("||old.example^", version: "12")
+
+    let firstOutcome = try await store.refresh(manifestURL: manifestURL, force: true).outcome
+    let deferredOutcome = try await store.refresh(manifestURL: manifestURL).outcome
+    let notModifiedOutcome = try await store.refresh(manifestURL: manifestURL, force: true).outcome
+    let receivedETags = await fixture.receivedETags
+    let ruleDownloadCount = await fixture.ruleDownloadCount
+    XCTAssertEqual(firstOutcome, .updated)
+    XCTAssertEqual(deferredOutcome, .deferred)
+    XCTAssertEqual(notModifiedOutcome, .notModified)
+    XCTAssertEqual(receivedETags, [nil, #""rules-12.1""#])
+    XCTAssertEqual(ruleDownloadCount, 1)
+  }
+
+  func testLiveSignedReleaseUpgradeWhenEnabled() async throws {
+    guard ProcessInfo.processInfo.environment["BRAVE_TEST_LIVE_RULE_RELEASES"] == "1" else {
+      throw XCTSkip("Set BRAVE_TEST_LIVE_RULE_RELEASES=1 to exercise public GitHub releases")
+    }
+    let root = temporaryDirectory.appendingPathComponent("live-release-upgrade")
+    let store = BuiltInFilterListStorage(
+      rootDirectoryURL: root,
+      dependencies: .init(
+        download: { url in
+          try await Self.liveDownload(url: url, etag: nil)
+        },
+        validateAndTrialCompile: { rules, candidateURL, version in
+          try await BuiltInFilterListStorage.validateAndTrialCompileCandidate(
+            rules: rules,
+            candidateURL: candidateURL,
+            version: version
+          )
+        },
+        activate: { _, _ in },
+        now: Date.init,
+        downloadManifest: { url, etag in
+          try await Self.liveDownload(url: url, etag: etag)
+        },
+        currentAppVersion: { "1.98.0" },
+        manifestPublicKey: BuiltInFilterListStorage.productionManifestPublicKey
+      )
+    )
+    _ = try await store.installBundledCandidate("||old.example^", version: "12")
+    let manifest12_1 = try XCTUnwrap(
+      URL(
+        string:
+          "https://github.com/lirui831221/brave-ios-rules/releases/download/ios-rules-v12.1/manifest.json"
+      )
+    )
+    let manifest12_2 = try XCTUnwrap(
+      URL(
+        string:
+          "https://github.com/lirui831221/brave-ios-rules/releases/download/ios-rules-v12.2/manifest.json"
+      )
+    )
+
+    let first = try await store.refresh(manifestURL: manifest12_1, force: true)
+    let second = try await store.refresh(manifestURL: manifest12_2, force: true)
+    let previousRulesValue = try await store.previousRules()
+    let previousRules = try XCTUnwrap(previousRulesValue)
+    XCTAssertEqual(first.status.activeVersion, "12.1")
+    XCTAssertEqual(second.status.activeVersion, "12.2")
+    XCTAssertTrue(previousRules.contains("release 12.1"))
+
+    do {
+      _ = try await store.refresh(manifestURL: manifest12_1, force: true)
+      XCTFail("A public-release downgrade should fail")
+    } catch {}
+    let status = await store.diagnosticStatus()
+    XCTAssertEqual(status.activeVersion, "12.2")
+    XCTAssertEqual(status.lastFailureReason, .versionRollback)
+  }
+
+  private func makeSignedManifest(
+    privateKey: Curve25519.Signing.PrivateKey,
+    rules: Data,
+    version: String,
+    minimumAppVersion: String = "1.98.0",
+    declaredSHA256: String? = nil,
+    declaredByteCount: Int? = nil
+  ) throws -> Data {
+    let payload = BuiltInFilterListStorage.ManifestPayload(
+      schemaVersion: 1,
+      ruleVersion: version,
+      minimumAppVersion: minimumAppVersion,
+      publishedAt: "2027-01-15T08:00:00Z",
+      keyID: BuiltInFilterListStorage.productionManifestKeyID,
+      rules: .init(
+        url:
+          "https://github.com/lirui831221/brave-ios-rules/releases/download/ios-rules-v\(version)/rules.txt",
+        sha256: declaredSHA256 ?? sha256Hex(rules),
+        byteCount: declaredByteCount ?? rules.count
+      )
+    )
+    let payloadEncoder = JSONEncoder()
+    payloadEncoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+    let payloadData = try payloadEncoder.encode(payload)
+    let envelope = BuiltInFilterListStorage.SignedManifestEnvelope(
+      payload: payloadData.base64EncodedString(),
+      signature: try privateKey.signature(for: payloadData).base64EncodedString()
+    )
+    return try JSONEncoder().encode(envelope)
+  }
+
+  private func makeSignedFixture(
+    manifest: Data,
+    rules: Data,
+    etag: String? = nil
+  ) -> SignedNetworkFixture {
+    SignedNetworkFixture(
+      manifestResponses: [
+        .init(
+          data: manifest,
+          statusCode: 200,
+          mimeType: "application/json",
+          etag: etag,
+          finalURL: URL(string: "https://updates.example/manifest.json")
+        )
+      ],
+      rulesResponse: .init(
+        data: rules,
+        statusCode: 200,
+        mimeType: "text/plain",
+        finalURL: URL(string: "https://updates.example/rules.txt")
+      )
+    )
+  }
+
+  private func makeSignedStore(
+    root: URL,
+    fixture: SignedNetworkFixture,
+    privateKey: Curve25519.Signing.PrivateKey
+  ) -> BuiltInFilterListStorage {
+    let fixedDate = fixedDate
+    return BuiltInFilterListStorage(
+      rootDirectoryURL: root,
+      dependencies: .init(
+        download: { _ in
+          await fixture.downloadRules()
+        },
+        validateAndTrialCompile: { _, _, _ in },
+        activate: { _, _ in },
+        now: { fixedDate },
+        downloadManifest: { _, etag in
+          try await fixture.downloadManifest(etag: etag)
+        },
+        currentAppVersion: { "1.98.0" },
+        manifestPublicKey: privateKey.publicKey.rawRepresentation
+      )
+    )
+  }
+
+  private func assertRefreshFailure(
+    store: BuiltInFilterListStorage,
+    expectedReason: BuiltInFilterListStorage.FailureReason
+  ) async {
+    do {
+      _ = try await store.refresh(
+        manifestURL: URL(string: "https://updates.example/manifest.json")!,
+        force: true
+      )
+      XCTFail("The signed update should have failed")
+    } catch {}
+
+    let activeRules = try? await store.activeRules()
+    let status = await store.diagnosticStatus()
+    XCTAssertEqual(activeRules, "||old.example^")
+    XCTAssertEqual(status.activeVersion, "12")
+    XCTAssertEqual(status.lastFailureReason, expectedReason)
+    XCTAssertEqual(status.lastFailureDate, fixedDate)
+  }
+
+  private func sha256Hex(_ data: Data) -> String {
+    SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+  }
+
+  private static func liveDownload(
+    url: URL,
+    etag: String?
+  ) async throws -> BuiltInFilterListStorage.DownloadPayload {
+    var request = URLRequest(url: url)
+    if let etag {
+      request.setValue(etag, forHTTPHeaderField: "If-None-Match")
+    }
+    let (data, response) = try await URLSession.shared.data(for: request)
+    let httpResponse = try XCTUnwrap(response as? HTTPURLResponse)
+    return .init(
+      data: data,
+      statusCode: httpResponse.statusCode,
+      mimeType: httpResponse.mimeType,
+      etag: httpResponse.value(forHTTPHeaderField: "ETag"),
+      finalURL: httpResponse.url
+    )
   }
 
   private func assertFailedUpdate(

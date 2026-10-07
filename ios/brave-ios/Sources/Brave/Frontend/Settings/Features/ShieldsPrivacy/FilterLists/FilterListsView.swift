@@ -75,6 +75,8 @@ struct FilterListsView: View {
   @State private var customFilterListsUpdateStatus = FilterListUpdateStatus.unknown
   @State private var customFilterListsUpdateError: Error? = nil
   @State private var builtInRuleStatus = BuiltInFilterListStorage.DiagnosticStatus.empty
+  @State private var builtInRulesUpdateStatus = FilterListUpdateStatus.unknown
+  @State private var builtInRulesUpdateError: Error? = nil
   @State private var searchText = ""
 
   var body: some View {
@@ -109,6 +111,25 @@ struct FilterListsView: View {
       if searchText.isEmpty {
         Section {
           builtInRulesStatusRows
+          updateFilterListsButton(
+            status: builtInRulesUpdateStatus,
+            error: builtInRulesUpdateError
+          ) {
+            builtInRulesUpdateStatus = .updating
+            builtInRulesUpdateError = nil
+            Task {
+              do {
+                let result = try await BuiltInFilterListStorage.shared.refresh(force: true)
+                builtInRuleStatus = result.status
+                builtInRulesUpdateStatus = .updated
+              } catch {
+                builtInRuleStatus =
+                  await BuiltInFilterListStorage.shared.diagnosticStatus()
+                builtInRulesUpdateError = error
+                builtInRulesUpdateStatus = .unknown
+              }
+            }
+          }
         } header: {
           SectionHeaderView(
             title: "Built-in protection rules",
@@ -187,6 +208,14 @@ struct FilterListsView: View {
             for: lastSuccessDate,
             relativeTo: Date()
           )
+        )
+      }
+    }
+
+    if let lastCheckDate = builtInRuleStatus.lastCheckDate {
+      LabeledContent("Last update check") {
+        Text(
+          verbatim: Self.dateFormatter.localizedString(for: lastCheckDate, relativeTo: Date())
         )
       }
     }

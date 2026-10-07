@@ -20,6 +20,13 @@ actor BuiltInFilterListStorage {
     case timedOut = "timed_out"
     case offline = "offline"
     case downloadFailed = "download_failed"
+    case invalidManifest = "invalid_manifest"
+    case invalidSignature = "invalid_signature"
+    case unsupportedSchema = "unsupported_schema"
+    case incompatibleAppVersion = "incompatible_app_version"
+    case versionRollback = "version_rollback"
+    case hashMismatch = "hash_mismatch"
+    case sizeMismatch = "size_mismatch"
     case emptyContent = "empty_content"
     case invalidEncoding = "invalid_utf8"
     case unexpectedDocument = "unexpected_document"
@@ -39,6 +46,13 @@ actor BuiltInFilterListStorage {
       case .timedOut: return "The update request timed out."
       case .offline: return "The device was offline."
       case .downloadFailed: return "The update could not be downloaded."
+      case .invalidManifest: return "The signed update manifest was invalid."
+      case .invalidSignature: return "The update manifest signature was invalid."
+      case .unsupportedSchema: return "The update manifest format is not supported."
+      case .incompatibleAppVersion: return "The update requires a newer browser version."
+      case .versionRollback: return "An older or reused rule version was rejected."
+      case .hashMismatch: return "The downloaded rules did not match the signed SHA-256."
+      case .sizeMismatch: return "The downloaded rules did not match the signed size."
       case .emptyContent: return "The downloaded rule list was empty."
       case .invalidEncoding: return "The downloaded rule list was not valid UTF-8."
       case .unexpectedDocument:
@@ -62,6 +76,8 @@ actor BuiltInFilterListStorage {
     var lastFailureDate: Date?
     var lastFailureReason: FailureReason?
     var lastAttemptSource: String?
+    var lastCheckDate: Date?
+    var manifestETag: String?
 
     static let empty = DiagnosticStatus(
       activeVersion: nil,
@@ -70,7 +86,9 @@ actor BuiltInFilterListStorage {
       lastSuccessDate: nil,
       lastFailureDate: nil,
       lastFailureReason: nil,
-      lastAttemptSource: nil
+      lastAttemptSource: nil,
+      lastCheckDate: nil,
+      manifestETag: nil
     )
   }
 
@@ -78,6 +96,22 @@ actor BuiltInFilterListStorage {
     let data: Data
     let statusCode: Int
     let mimeType: String?
+    let etag: String?
+    let finalURL: URL?
+
+    init(
+      data: Data,
+      statusCode: Int,
+      mimeType: String?,
+      etag: String? = nil,
+      finalURL: URL? = nil
+    ) {
+      self.data = data
+      self.statusCode = statusCode
+      self.mimeType = mimeType
+      self.etag = etag
+      self.finalURL = finalURL
+    }
   }
 
   struct InstallResult: Equatable, Sendable {
@@ -85,10 +119,49 @@ actor BuiltInFilterListStorage {
     let status: DiagnosticStatus
   }
 
+  enum RefreshOutcome: String, Equatable, Sendable {
+    case updated
+    case upToDate
+    case notModified
+    case deferred
+  }
+
+  struct RefreshResult: Equatable, Sendable {
+    let outcome: RefreshOutcome
+    let status: DiagnosticStatus
+  }
+
+  struct SignedManifestEnvelope: Codable, Equatable, Sendable {
+    let payload: String
+    let signature: String
+  }
+
+  struct ManifestPayload: Codable, Equatable, Sendable {
+    struct RuleAsset: Codable, Equatable, Sendable {
+      let url: String
+      let sha256: String
+      let byteCount: Int
+    }
+
+    let schemaVersion: Int
+    let ruleVersion: String
+    let minimumAppVersion: String
+    let publishedAt: String
+    let keyID: String
+    let rules: RuleAsset
+  }
+
   enum StoreError: Error, Equatable {
     case insecureSource
     case httpStatus(Int)
     case noHTTPResponse
+    case invalidManifest
+    case invalidSignature
+    case unsupportedSchema
+    case incompatibleAppVersion
+    case versionRollback
+    case hashMismatch
+    case sizeMismatch
     case emptyContent
     case invalidEncoding
     case unexpectedDocument
@@ -102,14 +175,45 @@ actor BuiltInFilterListStorage {
 
   struct Dependencies: Sendable {
     var download: @Sendable (URL) async throws -> DownloadPayload
+    var downloadManifest: @Sendable (URL, String?) async throws -> DownloadPayload
     var validateAndTrialCompile: @Sendable (String, URL, String) async throws -> Void
     var activate: @Sendable (URL, String) async throws -> Void
     var now: @Sendable () -> Date
+    var currentAppVersion: @Sendable () -> String
+    var manifestPublicKey: Data
+
+    init(
+      download: @escaping @Sendable (URL) async throws -> DownloadPayload,
+      validateAndTrialCompile: @escaping @Sendable (String, URL, String) async throws -> Void,
+      activate: @escaping @Sendable (URL, String) async throws -> Void,
+      now: @escaping @Sendable () -> Date,
+      downloadManifest: (@Sendable (URL, String?) async throws -> DownloadPayload)? = nil,
+      currentAppVersion: @escaping @Sendable () -> String = { "1.98.0" },
+      manifestPublicKey: Data = BuiltInFilterListStorage.productionManifestPublicKey
+    ) {
+      self.download = download
+      self.downloadManifest = downloadManifest ?? { url, _ in try await download(url) }
+      self.validateAndTrialCompile = validateAndTrialCompile
+      self.activate = activate
+      self.now = now
+      self.currentAppVersion = currentAppVersion
+      self.manifestPublicKey = manifestPublicKey
+    }
   }
 
   static let shared = BuiltInFilterListStorage()
   static let maximumBytes = 16 * 1_024 * 1_024
   static let maximumLines = 100_000
+  static let refreshInterval: TimeInterval = 24 * 60 * 60
+  static let automaticCheckInterval: TimeInterval = 6 * 60 * 60
+  static let productionManifestURL = URL(
+    string:
+      "https://github.com/lirui831221/brave-ios-rules/releases/latest/download/manifest.json"
+  )!
+  static let productionManifestPublicKey = Data(
+    base64Encoded: "qzNx5MIgHOYlUl8b6jTRSZwmWQQK2BxDfYUvaqgNo24="
+  )!
+  static let productionManifestKeyID = "brave-ios-rules-v1"
 
   private static let folderName = "built_in_rules"
   private static let activeFileName = "active.txt"
@@ -153,6 +257,7 @@ actor BuiltInFilterListStorage {
   private let rootDirectoryURL: URL
   private let dependencies: Dependencies
   private let fileManager: FileManager
+  private var automaticUpdateTask: Task<Void, Never>?
 
   init(
     rootDirectoryURL: URL = BuiltInFilterListStorage.defaultRootDirectoryURL,
@@ -180,7 +285,137 @@ actor BuiltInFilterListStorage {
     }
   }
 
-  /// Downloads a candidate from a secure endpoint and installs it only after all checks pass.
+  /// Starts opportunistic checks at launch and while the browser process remains active.
+  /// iOS may suspend the process, so this supplements rather than promises background delivery.
+  func startAutomaticUpdates() {
+    guard automaticUpdateTask == nil else { return }
+    automaticUpdateTask = Task { [weak self] in
+      guard let self else { return }
+      await self.refreshIfDue()
+      while !Task.isCancelled {
+        do {
+          try await Task.sleep(seconds: Self.automaticCheckInterval)
+        } catch {
+          return
+        }
+        await self.refreshIfDue()
+      }
+    }
+  }
+
+  @discardableResult
+  func refresh(
+    manifestURL: URL = BuiltInFilterListStorage.productionManifestURL,
+    force: Bool = false
+  ) async throws -> RefreshResult {
+    let statusBeforeAttempt = readStatus()
+    if !force,
+      let lastCheckDate = statusBeforeAttempt.lastCheckDate,
+      dependencies.now().timeIntervalSince(lastCheckDate) < Self.refreshInterval
+    {
+      return RefreshResult(outcome: .deferred, status: statusBeforeAttempt)
+    }
+
+    let source = Self.safeSourceDescription(for: manifestURL)
+    guard manifestURL.scheme?.lowercased() == "https" else {
+      recordFailure(.insecureSource, source: source)
+      throw StoreError.insecureSource
+    }
+
+    do {
+      let manifestResponse = try await dependencies.downloadManifest(
+        manifestURL,
+        statusBeforeAttempt.manifestETag
+      )
+      if manifestResponse.statusCode == 304 {
+        let status = recordSuccessfulCheck(
+          source: source,
+          etag: manifestResponse.etag ?? statusBeforeAttempt.manifestETag
+        )
+        return RefreshResult(outcome: .notModified, status: status)
+      }
+      guard (200...299).contains(manifestResponse.statusCode) else {
+        throw StoreError.httpStatus(manifestResponse.statusCode)
+      }
+      try Self.requireSecureFinalURL(manifestResponse.finalURL)
+
+      let manifest = try verifiedManifest(from: manifestResponse.data)
+      let appComparison = try Self.compareVersions(
+        dependencies.currentAppVersion(),
+        manifest.minimumAppVersion
+      )
+      guard appComparison != .orderedAscending else {
+        throw StoreError.incompatibleAppVersion
+      }
+
+      if let activeVersion = statusBeforeAttempt.activeVersion {
+        let comparison = try Self.compareVersions(manifest.ruleVersion, activeVersion)
+        if comparison == .orderedAscending {
+          throw StoreError.versionRollback
+        }
+        if comparison == .orderedSame {
+          guard statusBeforeAttempt.activeSHA256?.lowercased() == manifest.rules.sha256.lowercased()
+          else {
+            throw StoreError.versionRollback
+          }
+          let status = recordSuccessfulCheck(source: source, etag: manifestResponse.etag)
+          return RefreshResult(outcome: .upToDate, status: status)
+        }
+      }
+
+      guard let rulesURL = URL(string: manifest.rules.url),
+        rulesURL.scheme?.lowercased() == "https"
+      else {
+        throw StoreError.insecureSource
+      }
+      guard manifest.rules.byteCount > 0, manifest.rules.byteCount <= Self.maximumBytes else {
+        throw StoreError.invalidManifest
+      }
+
+      let rulesResponse = try await dependencies.download(rulesURL)
+      guard (200...299).contains(rulesResponse.statusCode) else {
+        throw StoreError.httpStatus(rulesResponse.statusCode)
+      }
+      try Self.requireSecureFinalURL(rulesResponse.finalURL)
+      guard rulesResponse.data.count == manifest.rules.byteCount else {
+        throw StoreError.sizeMismatch
+      }
+      guard Self.sha256Hex(of: rulesResponse.data) == manifest.rules.sha256.lowercased() else {
+        throw StoreError.hashMismatch
+      }
+
+      let installed = try await installCandidate(
+        rulesResponse.data,
+        version: manifest.ruleVersion,
+        source: source,
+        mimeType: rulesResponse.mimeType,
+        manifestETag: manifestResponse.etag
+      )
+      return RefreshResult(
+        outcome: installed.changed ? .updated : .upToDate,
+        status: installed.status
+      )
+    } catch {
+      if !Self.isCandidateError(error) {
+        recordFailure(Self.failureReason(for: error), source: source)
+      }
+      throw error
+    }
+  }
+
+  private func refreshIfDue() async {
+    do {
+      _ = try await refresh()
+    } catch {
+      ContentBlockerManager.log.error(
+        "Built-in rule update check failed: \(String(describing: error))"
+      )
+    }
+  }
+
+  #if DEBUG
+  /// Downloads an unsigned candidate for local fault-injection tests. This API is excluded from
+  /// release builds; production updates use `refresh` and require a signed manifest.
   @discardableResult
   func update(from url: URL, version: String) async throws -> InstallResult {
     guard url.scheme?.lowercased() == "https" else {
@@ -198,7 +433,8 @@ actor BuiltInFilterListStorage {
         payload.data,
         version: version,
         source: source,
-        mimeType: payload.mimeType
+        mimeType: payload.mimeType,
+        manifestETag: nil
       )
     } catch {
       if !Self.isCandidateError(error) {
@@ -207,6 +443,7 @@ actor BuiltInFilterListStorage {
       throw error
     }
   }
+  #endif
 
   /// Installs rules embedded in this app through the same candidate-validation transaction used
   /// by downloaded updates.
@@ -216,7 +453,8 @@ actor BuiltInFilterListStorage {
       Data(rules.utf8),
       version: version,
       source: "bundled",
-      mimeType: "text/plain"
+      mimeType: "text/plain",
+      manifestETag: nil
     )
   }
 
@@ -241,7 +479,8 @@ actor BuiltInFilterListStorage {
     _ data: Data,
     version: String,
     source: String,
-    mimeType: String?
+    mimeType: String?,
+    manifestETag: String?
   ) async throws -> InstallResult {
     var oldActiveData: Data?
     var didPromote = false
@@ -285,7 +524,9 @@ actor BuiltInFilterListStorage {
         lastSuccessDate: dependencies.now(),
         lastFailureDate: currentStatus.lastFailureDate,
         lastFailureReason: currentStatus.lastFailureReason,
-        lastAttemptSource: source
+        lastAttemptSource: source,
+        lastCheckDate: source == "bundled" ? currentStatus.lastCheckDate : dependencies.now(),
+        manifestETag: manifestETag ?? currentStatus.manifestETag
       )
       try writeStatus(successStatus)
       do {
@@ -381,10 +622,70 @@ actor BuiltInFilterListStorage {
 
   private func recordFailure(_ reason: FailureReason, source: String) {
     var status = readStatus()
+    status.lastCheckDate = dependencies.now()
     status.lastFailureDate = dependencies.now()
     status.lastFailureReason = reason
     status.lastAttemptSource = source
     try? writeStatus(status)
+  }
+
+  @discardableResult
+  private func recordSuccessfulCheck(source: String, etag: String?) -> DiagnosticStatus {
+    var status = readStatus()
+    status.lastCheckDate = dependencies.now()
+    status.lastAttemptSource = source
+    status.manifestETag = etag ?? status.manifestETag
+    try? writeStatus(status)
+    return status
+  }
+
+  private func verifiedManifest(from data: Data) throws -> ManifestPayload {
+    let envelope: SignedManifestEnvelope
+    do {
+      envelope = try JSONDecoder().decode(SignedManifestEnvelope.self, from: data)
+    } catch {
+      throw StoreError.invalidManifest
+    }
+    guard
+      let payloadData = Data(base64Encoded: envelope.payload),
+      let signatureData = Data(base64Encoded: envelope.signature)
+    else {
+      throw StoreError.invalidManifest
+    }
+
+    let publicKey: Curve25519.Signing.PublicKey
+    do {
+      publicKey = try Curve25519.Signing.PublicKey(
+        rawRepresentation: dependencies.manifestPublicKey
+      )
+    } catch {
+      throw StoreError.invalidManifest
+    }
+    guard publicKey.isValidSignature(signatureData, for: payloadData) else {
+      throw StoreError.invalidSignature
+    }
+
+    let manifest: ManifestPayload
+    do {
+      manifest = try JSONDecoder().decode(ManifestPayload.self, from: payloadData)
+    } catch {
+      throw StoreError.invalidManifest
+    }
+    guard manifest.schemaVersion == 1 else { throw StoreError.unsupportedSchema }
+    guard manifest.keyID == Self.productionManifestKeyID else {
+      throw StoreError.invalidSignature
+    }
+    guard ISO8601DateFormatter().date(from: manifest.publishedAt) != nil else {
+      throw StoreError.invalidManifest
+    }
+    _ = try Self.versionComponents(manifest.ruleVersion)
+    _ = try Self.versionComponents(manifest.minimumAppVersion)
+    guard manifest.rules.sha256.count == 64,
+      manifest.rules.sha256.allSatisfy({ $0.isHexDigit })
+    else {
+      throw StoreError.invalidManifest
+    }
+    return manifest
   }
 
   private static func validatedString(from data: Data, mimeType: String?) throws -> String {
@@ -437,13 +738,44 @@ actor BuiltInFilterListStorage {
     return "remote:\(host)"
   }
 
+  private static func requireSecureFinalURL(_ url: URL?) throws {
+    if let url, url.scheme?.lowercased() != "https" {
+      throw StoreError.insecureSource
+    }
+  }
+
+  private static func versionComponents(_ value: String) throws -> [Int] {
+    let normalized = value.hasPrefix("v") ? String(value.dropFirst()) : value
+    let parts = normalized.split(separator: ".", omittingEmptySubsequences: false)
+    guard !parts.isEmpty, parts.count <= 4 else { throw StoreError.invalidManifest }
+    return try parts.map { part in
+      guard !part.isEmpty, part.allSatisfy(\.isNumber), let value = Int(part), value >= 0 else {
+        throw StoreError.invalidManifest
+      }
+      return value
+    }
+  }
+
+  private static func compareVersions(_ lhs: String, _ rhs: String) throws -> ComparisonResult {
+    let left = try versionComponents(lhs)
+    let right = try versionComponents(rhs)
+    for index in 0..<max(left.count, right.count) {
+      let leftValue = index < left.count ? left[index] : 0
+      let rightValue = index < right.count ? right[index] : 0
+      if leftValue < rightValue { return .orderedAscending }
+      if leftValue > rightValue { return .orderedDescending }
+    }
+    return .orderedSame
+  }
+
   private static func isCandidateError(_ error: Error) -> Bool {
     guard let error = error as? StoreError else { return false }
     switch error {
     case .emptyContent, .invalidEncoding, .unexpectedDocument, .tooLarge, .tooManyLines,
       .invalidRule, .trialCompilationFailed, .storageFailed, .activationFailed:
       return true
-    case .insecureSource, .httpStatus, .noHTTPResponse:
+    case .insecureSource, .httpStatus, .noHTTPResponse, .invalidManifest, .invalidSignature,
+      .unsupportedSchema, .incompatibleAppVersion, .versionRollback, .hashMismatch, .sizeMismatch:
       return false
     }
   }
@@ -463,6 +795,13 @@ actor BuiltInFilterListStorage {
     case .httpStatus(404): return .http404
     case .httpStatus: return .httpError
     case .noHTTPResponse: return .downloadFailed
+    case .invalidManifest: return .invalidManifest
+    case .invalidSignature: return .invalidSignature
+    case .unsupportedSchema: return .unsupportedSchema
+    case .incompatibleAppVersion: return .incompatibleAppVersion
+    case .versionRollback: return .versionRollback
+    case .hashMismatch: return .hashMismatch
+    case .sizeMismatch: return .sizeMismatch
     case .emptyContent: return .emptyContent
     case .invalidEncoding: return .invalidEncoding
     case .unexpectedDocument: return .unexpectedDocument
@@ -478,18 +817,7 @@ actor BuiltInFilterListStorage {
   private static func liveDependencies() -> Dependencies {
     Dependencies(
       download: { url in
-        let (data, response) = try await URLSession.shared.data(from: url)
-        guard let response = response as? HTTPURLResponse else {
-          throw StoreError.noHTTPResponse
-        }
-        guard response.url?.scheme?.lowercased() == "https" else {
-          throw StoreError.insecureSource
-        }
-        return DownloadPayload(
-          data: data,
-          statusCode: response.statusCode,
-          mimeType: response.mimeType
-        )
+        try await liveDownload(url: url, etag: nil)
       },
       validateAndTrialCompile: validateAndTrialCompileCandidate,
       activate: { fileURL, version in
@@ -504,7 +832,37 @@ actor BuiltInFilterListStorage {
         }
         await AdBlockGroupsManager.shared.updateImmediately(fileInfo: fileInfo)
       },
-      now: Date.init
+      now: Date.init,
+      downloadManifest: { url, etag in
+        try await liveDownload(url: url, etag: etag)
+      },
+      currentAppVersion: {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+          ?? "0"
+      }
+    )
+  }
+
+  private static func liveDownload(url: URL, etag: String?) async throws -> DownloadPayload {
+    var request = URLRequest(url: url)
+    request.setValue("application/json, text/plain;q=0.9", forHTTPHeaderField: "Accept")
+    request.cachePolicy = .reloadIgnoringLocalCacheData
+    if let etag {
+      request.setValue(etag, forHTTPHeaderField: "If-None-Match")
+    }
+    let (data, response) = try await URLSession.shared.data(for: request)
+    guard let response = response as? HTTPURLResponse else {
+      throw StoreError.noHTTPResponse
+    }
+    guard response.url?.scheme?.lowercased() == "https" else {
+      throw StoreError.insecureSource
+    }
+    return DownloadPayload(
+      data: data,
+      statusCode: response.statusCode,
+      mimeType: response.mimeType,
+      etag: response.value(forHTTPHeaderField: "ETag"),
+      finalURL: response.url
     )
   }
 
