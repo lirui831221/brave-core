@@ -271,6 +271,7 @@ actor BuiltInFilterListStorage {
 
   /// Makes an already-validated active file available to both blocking engines during launch.
   func loadActiveRules() async {
+    removeStaleCandidateFiles()
     guard let fileInfo = activeFileInfo() else { return }
     await MainActor.run {
       AdBlockGroupsManager.shared.update(
@@ -449,7 +450,17 @@ actor BuiltInFilterListStorage {
   /// by downloaded updates.
   @discardableResult
   func installBundledCandidate(_ rules: String, version: String) async throws -> InstallResult {
-    try await installCandidate(
+    let currentStatus = readStatus()
+    if let activeVersion = currentStatus.activeVersion,
+      fileManager.fileExists(atPath: activeFileURL.path)
+    {
+      let comparison = try Self.compareVersions(version, activeVersion)
+      if comparison != .orderedDescending {
+        return InstallResult(changed: false, status: currentStatus)
+      }
+    }
+
+    return try await installCandidate(
       Data(rules.utf8),
       version: version,
       source: "bundled",
@@ -490,6 +501,7 @@ actor BuiltInFilterListStorage {
     do {
       let rules = try Self.validatedString(from: data, mimeType: mimeType)
       try createRootDirectoryIfNeeded()
+      removeStaleCandidateFiles()
 
       let url = rootDirectoryURL.appendingPathComponent("candidate-\(UUID().uuidString).txt")
       candidateURL = url
@@ -560,6 +572,20 @@ actor BuiltInFilterListStorage {
         try? await dependencies.activate(restoredInfo.url, restoredInfo.version)
       }
       throw error
+    }
+  }
+
+  private func removeStaleCandidateFiles() {
+    guard
+      let files = try? fileManager.contentsOfDirectory(
+        at: rootDirectoryURL,
+        includingPropertiesForKeys: nil
+      )
+    else { return }
+
+    for file in files
+    where file.lastPathComponent.hasPrefix("candidate-") && file.pathExtension == "txt" {
+      try? fileManager.removeItem(at: file)
     }
   }
 

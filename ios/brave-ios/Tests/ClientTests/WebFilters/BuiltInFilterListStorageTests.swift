@@ -153,6 +153,57 @@ final class BuiltInFilterListStorageTests: XCTestCase {
     XCTAssertNil(result.status.lastFailureReason)
   }
 
+  func testBundledCandidateDoesNotReplaceNewerDownloadedRules() async throws {
+    let root = temporaryDirectory.appendingPathComponent("bundled-rollback")
+    let downloadedRules = "||new.example^\nnew.example##.sponsor"
+    let recorder = ActivationRecorder()
+    let store = makeStore(
+      root: root,
+      download: .response(Data(downloadedRules.utf8), 200, "text/plain"),
+      activationRecorder: recorder
+    )
+
+    _ = try await store.installBundledCandidate("||bundled.example^", version: "12")
+    _ = try await store.update(
+      from: XCTUnwrap(URL(string: "https://updates.example/rules.txt")),
+      version: "12.1"
+    )
+    let result = try await store.installBundledCandidate(
+      "||bundled.example^",
+      version: "12"
+    )
+
+    let activeRules = try await store.activeRules()
+    let previousRules = try await store.previousRules()
+    let activatedVersions = await recorder.versions
+    XCTAssertFalse(result.changed)
+    XCTAssertEqual(activeRules, downloadedRules)
+    XCTAssertEqual(previousRules, "||bundled.example^")
+    XCTAssertEqual(result.status.activeVersion, "12.1")
+    XCTAssertEqual(activatedVersions, ["12", "12.1"])
+  }
+
+  func testLaunchRemovesInterruptedCandidateWithoutTouchingActiveRules() async throws {
+    let root = temporaryDirectory.appendingPathComponent("interrupted-candidate")
+    let store = makeStore(
+      root: root,
+      download: .response(Data(), 500, "text/plain")
+    )
+    _ = try await store.installBundledCandidate("||active.example^", version: "12")
+    let interruptedCandidate = root.appendingPathComponent("candidate-interrupted.txt")
+    try "||incomplete.example^".write(
+      to: interruptedCandidate,
+      atomically: true,
+      encoding: .utf8
+    )
+
+    await store.loadActiveRules()
+
+    XCTAssertFalse(FileManager.default.fileExists(atPath: interruptedCandidate.path))
+    let activeRules = try await store.activeRules()
+    XCTAssertEqual(activeRules, "||active.example^")
+  }
+
   func testHTTPFailuresKeepLastKnownGoodRules() async throws {
     try await assertFailedUpdate(
       download: .response(Data("denied".utf8), 403, "text/plain"),

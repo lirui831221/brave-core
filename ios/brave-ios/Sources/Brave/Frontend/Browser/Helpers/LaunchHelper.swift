@@ -58,7 +58,7 @@ public actor LaunchHelper {
         let bundledRules = try BuiltInFilterListStorage.bundledSnapshot()
 
         let status = await BuiltInFilterListStorage.shared.diagnosticStatus()
-        guard injectedVersion.value < version || status.activeVersion != "\(version)" else {
+        guard injectedVersion.value < version || status.activeVersion == nil else {
           return
         }
 
