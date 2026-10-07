@@ -23,11 +23,11 @@ enum SearchEngineError: Error {
 }
 
 // BRAVE TODO: Move to newer Preferences class(#259)
-enum DefaultEngineType: String {
+public enum DefaultEngineType: String {
   case standard = "search.default.name"
   case privateMode = "search.defaultprivate.name"
 
-  var option: Preferences.Option<String?> {
+  public var option: Preferences.Option<String?> {
     switch self {
     case .standard: return Preferences.Search.defaultEngineName
     case .privateMode: return Preferences.Search.defaultPrivateEngineName
@@ -182,7 +182,7 @@ public class SearchEngines {
   }
 
   /// Updates selected default engine, order of remaining search engines remains intact.
-  func updateDefaultEngine(_ engine: String, forType type: DefaultEngineType) {
+  public func updateDefaultEngine(_ engine: String, forType type: DefaultEngineType) {
     let originalEngine = defaultEngine(forType: type)
     type.option.value = engine
     if type == .standard {
@@ -302,7 +302,7 @@ public class SearchEngines {
   }
 
   /// Adds an engine to the front of the search engines list.
-  func addSearchEngine(_ engine: OpenSearchEngine) async throws {
+  public func addSearchEngine(_ engine: OpenSearchEngine) async throws {
     guard orderedEngines.contains(where: { $0.searchTemplate != engine.searchTemplate }) else {
       throw SearchEngineError.duplicate
     }

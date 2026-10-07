@@ -1,0 +1,21 @@
+{
+  "release": "ios-youtube-v11b",
+  "base_brave_core": "26101b8ddd687f0abd974337742fc3f4233253ae",
+  "app_version": "1.98",
+  "platform": "ios",
+  "architecture": "arm64",
+  "candidate_built_at": "2026-10-06T18:48:44+08:00",
+  "candidate_signing": "Apple Development",
+  "binary_published": false,
+  "binary_publish_reason": "The development-signed application embeds a device-restricted provisioning profile.",
+  "assets": {
+    "ios/brave-ios/Sources/Brave/Assets/youtube-filters.txt": {
+      "lines": 135,
+      "sha256": "5476799a9f77bd18988a2dfde8a1cc0d74a794890be590fd6c6c49e94a4250c6"
+    },
+    "ios/brave-ios/Sources/Brave/Assets/official-filters.txt": {
+      "lines": 64266,
+      "sha256": "bcf2f78f18b5a658ee41c04f8b89a0739add95b1eefddfb9c4deef41a37a6507"
+    }
+  }
+}

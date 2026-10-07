@@ -4,11 +4,14 @@
 
 #include "Base.xcconfig"
 
-MOZ_BUNDLE_DISPLAY_NAME = Brave
+// [brave-ios-trim] Personal YouTube-first build display name.
+MOZ_BUNDLE_DISPLAY_NAME = 油管
 
 // Bundle Identifier
-MOZ_BUNDLE_ID = $(BASE_BUNDLE_ID).browser
-BRAVE_GROUP_ID = group.$(MOZ_BUNDLE_ID)
+// [brave-ios-trim] Keep the same team-owned bundle ID as the Debug build so a
+// Release install upgrades in place (data preserved: rules, engines, tabs).
+MOZ_BUNDLE_ID = com.7VG9U2TN4G.bravebeta
+BRAVE_GROUP_ID = group.$(MOZ_BUNDLE_ID).unique
 
 // Flag to indicate if we want to include the debug settings bundle or not
 INCLUDE_SETTINGS_BUNDLE = NO

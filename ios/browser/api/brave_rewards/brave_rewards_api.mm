@@ -149,9 +149,10 @@ NSString* const BraveRewardsDisabledByPolicyPrefName =
 @implementation BraveRewardsAPI
 
 + (BOOL)isSupported:(id<PrefServiceBridge>)prefService {
-  PrefServiceBridgeImpl* holder =
-      base::apple::ObjCCastStrict<PrefServiceBridgeImpl>(prefService);
-  return brave_rewards::IsSupported(holder.prefService);
+  // [brave-ios-trim] Brave Rewards disabled by default in this custom build
+  // (parity with mac-brave-1.0.4 service trim). Returning NO hides all Rewards
+  // UI entry points (settings, menu, shields panel) without touching user data.
+  return NO;
 }
 
 - (instancetype)initWithStateStoragePath:(NSString*)path {

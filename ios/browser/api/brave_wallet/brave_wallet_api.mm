@@ -59,7 +59,10 @@ BraveWalletProviderScriptKey const BraveWalletProviderScriptKeyWalletStandard =
 }
 
 - (bool)isAllowed {
-  return brave_wallet::IsAllowed(_profile->GetPrefs());
+  // [brave-ios-trim] Brave Wallet/Web3 disabled by default in this custom
+  // build (parity with mac-brave-1.0.4 service trim). All wallet UI entry
+  // points consult this property; user wallet data on disk is untouched.
+  return NO;
 }
 
 + (id<BraveWalletBlockchainRegistry>)blockchainRegistry {

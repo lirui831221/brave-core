@@ -125,6 +125,8 @@ var package = Package(
       resources: [
         .copy("Assets/About/AboutHome.html"),
         .copy("Assets/__firefox__.js"),
+        .copy("Assets/youtube-filters.txt"),
+        .copy("Assets/official-filters.txt"),
         .copy("Assets/AllFramesAtDocumentEnd.js"),
         .copy("Assets/AllFramesAtDocumentEndSandboxed.js"),
         .copy("Assets/AllFramesAtDocumentStart.js"),

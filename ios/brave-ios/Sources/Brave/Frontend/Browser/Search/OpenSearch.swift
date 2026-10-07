@@ -17,7 +17,7 @@ private enum WidgetSearchAttribution {
   static let widgetValue = "ios-widget"
 }
 
-class OpenSearchEngine: NSObject, NSSecureCoding {
+public class OpenSearchEngine: NSObject, NSSecureCoding {
   static let preferredIconSize = 30
 
   struct EngineNames {
@@ -30,7 +30,7 @@ class OpenSearchEngine: NSObject, NSSecureCoding {
 
   static let defaultSearchClientName = "brave"
 
-  let shortName: String
+  public let shortName: String
   let referenceURL: String?
 
   // Backwards compatibility workaround, see #3056.
@@ -65,7 +65,7 @@ class OpenSearchEngine: NSObject, NSSecureCoding {
 
   fileprivate lazy var searchQueryComponentKey: String? = self.getQueryArgFromTemplate()
 
-  init(
+  public init(
     engineID: String? = nil,
     shortName: String,
     referenceURL: String? = nil,
@@ -83,7 +83,7 @@ class OpenSearchEngine: NSObject, NSSecureCoding {
     self.engineID = engineID
   }
 
-  required init?(coder aDecoder: NSCoder) {
+  public required init?(coder aDecoder: NSCoder) {
     // this catches the cases where bool encoded in Swift 2 needs to be decoded with decodeObject, but a Bool encoded in swift 3 needs
     // to be decoded using decodeBool. This catches the upgrade case to ensure that we are always able to fetch a keyed valye for isCustomEngine
     // http://stackoverflow.com/a/40034694
@@ -108,7 +108,7 @@ class OpenSearchEngine: NSObject, NSSecureCoding {
       aDecoder.decodeObject(of: NSString.self, forKey: "suggestTemplate") as String?
   }
 
-  func encode(with aCoder: NSCoder) {
+  public func encode(with aCoder: NSCoder) {
     aCoder.encode(searchTemplate, forKey: "searchTemplate")
     aCoder.encode(suggestTemplate, forKey: "suggestTemplate")
     aCoder.encode(shortName, forKey: "shortName")
@@ -118,7 +118,7 @@ class OpenSearchEngine: NSObject, NSSecureCoding {
     aCoder.encode(referenceURL, forKey: "href")
   }
 
-  static var supportsSecureCoding: Bool {
+  public static var supportsSecureCoding: Bool {
     return true
   }
 

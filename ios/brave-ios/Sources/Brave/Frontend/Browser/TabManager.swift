@@ -504,6 +504,15 @@ class TabManager: NSObject {
   ) -> any TabState {
     assert(Thread.isMainThread)
 
+    // [brave-ios-trim] P2: a fresh, URL-less tab (toolbar "+", crash recovery,
+    // "at least one tab" fallback) opens YouTube directly instead of the NTP.
+    // Session restore passes explicit URLs and is never affected. Private
+    // tabs keep the blank page so incognito stays neutral.
+    var request = request
+    if request?.url == nil, !isPrivate {
+      request = URLRequest(url: URL(string: "https://m.youtube.com/")!)
+    }
+
     let tabId = id ?? UUID()
     var initialConfiguration: WKWebViewConfiguration?
     if !FeatureList.kUseProfileWebViewConfiguration.enabled {

@@ -15,6 +15,8 @@ brave_version_build = 0
 FRAMEWORK_BASE_BUNDLE_ID = com.brave
 BASE_BUNDLE_ID = $(FRAMEWORK_BASE_BUNDLE_ID).ios
 
-DEVELOPMENT_TEAM = KL8N8XSYF4
+// [brave-ios-trim] Personal build: sign with the personal team instead of
+// Brave's official team ID so Xcode GUI builds work with the local account.
+DEVELOPMENT_TEAM = 7VG9U2TN4G
 
 BRAVE_URL_SCHEME = brave

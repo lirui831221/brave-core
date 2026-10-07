@@ -78,31 +78,10 @@ class NTPDefaultBrowserCalloutProvider: NSObject, NTPObservableSectionProvider {
   }
 
   func shouldShowCallout() -> Bool {
-    // Never show Default Browser Notification over an NPT SI
-    if isBackgroundNTPSI {
-      return false
-    }
-
-    let defaultBrowserDisplayCriteria =
-      !Preferences.General.defaultBrowserCalloutDismissed.value
-
-    guard let appRetentionLaunchDate = Preferences.DAU.appRetentionLaunchDate.value else {
-      return defaultBrowserDisplayCriteria
-    }
-
-    // User should not see default browser first 7 days
-    // also after 14 days
-    var defaultBrowserTimeConstraintCriteria = false
-
-    let rightNow = Date()
-    let first7DayPeriod = appRetentionLaunchDate.addingTimeInterval(7.days)
-    let first14DayPeriod = appRetentionLaunchDate.addingTimeInterval(14.days)
-
-    if rightNow > first7DayPeriod, rightNow < first14DayPeriod {
-      defaultBrowserTimeConstraintCriteria = true
-    }
-
-    return defaultBrowserDisplayCriteria && defaultBrowserTimeConstraintCriteria
+    // [brave-ios-trim] Personal build: never nag the user to set this
+    // browser as the system default. This is a YouTube-first build, not a
+    // daily driver replacement, so the callout is pure noise.
+    return false
   }
 
   private func openSettings(windowScene: UIWindowScene?) {

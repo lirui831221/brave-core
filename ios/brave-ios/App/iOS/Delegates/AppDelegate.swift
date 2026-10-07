@@ -16,6 +16,7 @@ import BraveWidgetsModels
 import Combine
 import CoreSpotlight
 import Data
+import FaviconModels
 import Growth
 import LocalAuthentication
 import MessageUI
@@ -237,6 +238,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       if !Preferences.Search.yahooJPPhaseTwoCompleted.value {
         AppState.shared.profile.searchEngines.updateDSEToYahooJPIfNeeded()
         Preferences.Search.yahooJPPhaseTwoCompleted.value = true
+      }
+
+      // [brave-ios-trim] P2: install the bundled "YouTube 站内搜索" engine and
+      // make it the default on first launch. Idempotent — after this runs once
+      // the DSE preference holds the engine name, so the user may freely pick
+      // a different engine in Settings afterwards without this overriding it.
+      if Preferences.Option<Bool>(
+        key: "brave-ios-trim.youtube-engine-installed", default: false
+      ).value == false {
+        await Self.installYouTubeSearchEngine()
+      }
+
+      // [brave-ios-trim] P3: subscribe to the uBlock Origin quick-fixes list
+      // on first launch. This is the community hot-fix channel that counters
+      // new YouTube anti-adblock measures without rebuilding the browser.
+      // Idempotent — the user may remove it freely in Shields settings;
+      // removal is respected because we only install when the marker is off.
+      if Preferences.Option<Bool>(
+        key: "brave-ios-trim.ubo-quickfixes-subscribed", default: false
+      ).value == false {
+        Self.subscribeUboQuickFixes()
       }
     }
 
@@ -481,5 +503,75 @@ extension AppDelegate {
         SessionWindow.delete(windowId: windowId)
       }
     }
+  }
+
+  // [brave-ios-trim] P2: registers the bundled YouTube in-site search engine
+  // and sets it as the default (standard mode) once. Runs after the regular
+  // search engine setup; guarded by a preference so the user's later engine
+  // choice in Settings is never overridden.
+  private static func installYouTubeSearchEngine() async {
+    let searchEngines = AppState.shared.profile.searchEngines
+
+    // Skip if the user deliberately picked another engine after our install.
+    // (The installed marker guards the one-time setup; `userPickedDSEName`
+    // distinguishes an untouched default from an explicit user choice.)
+    if Preferences.Search.userPickedDSEName.value != nil,
+      Preferences.Search.defaultEngineName.value != "YouTube 站内搜索"
+    {
+      return
+    }
+
+    let engine = OpenSearchEngine(
+      shortName: "YouTube 站内搜索",
+      image: Favicon.defaultImage,
+      searchTemplate: "https://m.youtube.com/results?search_query={searchTerms}",
+      isCustomEngine: true
+    )
+
+    do {
+      try await searchEngines.addSearchEngine(engine)
+      searchEngines.updateDefaultEngine(engine.shortName, forType: .standard)
+      Preferences.Option<Bool>(
+        key: "brave-ios-trim.youtube-engine-installed", default: false
+      ).value = true
+    } catch {
+      // Duplicate engine or save failure: non-fatal, keep the stock engine.
+      os_log(
+        "YouTube search engine install skipped: %@",
+        type: .error,
+        String(describing: error)
+      )
+    }
+  }
+
+  // [brave-ios-trim] P3: registers the uBlock Origin quick-fixes list as a
+  // subscribed custom filter list. The FilterListCustomURLDownloader picks up
+  // any CustomFilterListSetting rows at startup and keeps them updated, so
+  // creating the record is all that's needed for a live subscription.
+  private static func subscribeUboQuickFixes() {
+    let marker = Preferences.Option<Bool>(
+      key: "brave-ios-trim.ubo-quickfixes-subscribed", default: false
+    )
+
+    // Respect an explicit user removal: if the row exists but is disabled,
+    // the user turned it off — never re-enable behind their back.
+    let existing = CustomFilterListSetting.loadAllSettings(fromMemory: false)
+      .filter { $0.externalURL.absoluteString.contains("quick-fixes") }
+
+    if let setting = existing.first {
+      if setting.isEnabled {
+        marker.value = true
+      }
+      return
+    }
+
+    guard
+      let url = URL(
+        string: "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/quick-fixes.txt"
+      )
+    else { return }
+
+    _ = CustomFilterListSetting.create(externalURL: url, isEnabled: true, inMemory: false)
+    marker.value = true
   }
 }

@@ -21,9 +21,10 @@
 @implementation AIChatUtils
 
 + (BOOL)isAIChatEnabledForPrefService:(id<PrefServiceBridge>)prefService {
-  PrefServiceBridgeImpl* holder =
-      base::apple::ObjCCastStrict<PrefServiceBridgeImpl>(prefService);
-  return ai_chat::IsAIChatEnabled(holder.prefService);
+  // [brave-ios-trim] Leo / built-in AI disabled in this custom build
+  // (parity with mac-brave-1.0.4 service trim). Hides Leo entry points:
+  // settings row, omnibox action, toolbar button, widget shortcuts.
+  return NO;
 }
 
 + (NSURL*)openLeoURLWithQuerySubmitted:(NSString*)query

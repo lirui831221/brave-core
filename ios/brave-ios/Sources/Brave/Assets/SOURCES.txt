@@ -1,0 +1,24 @@
+Third-party filter sources and notices
+======================================
+
+This directory contains the exact rule snapshots shipped in ios-youtube-v11b.
+
+YouTube-specific pinned Brave mirror sources recorded in youtube-filters.txt:
+- https://raw.githubusercontent.com/brave/adblock-lists-mirror/ef13c66f8fb653058753d5b7a7f489e44fc08dbe/lists/ae9ffb3dd1624d8fa7e3fc3381ff11a4.txt
+- https://raw.githubusercontent.com/brave/adblock-lists-mirror/ef13c66f8fb653058753d5b7a7f489e44fc08dbe/lists/b85138f942539c8e8909d0c42779d662.txt
+
+The 2026-10-06 official-filters.txt snapshot was assembled from public Brave
+adblock mirror, uBlock Origin uAssets, EasyList, and Brave-maintained lists,
+then reduced to network rules for the iOS Content Blocker path. The original
+one-off merge script and complete locked URL manifest were not preserved.
+That limitation is documented in docs/custom-ios/README.md.
+
+Licenses and upstream notices:
+- Brave adblock-lists-mirror: MPL-2.0
+  https://github.com/brave/adblock-lists-mirror/blob/main/LICENSE
+- uBlock Origin uAssets: GPL-3.0; a copy is in UBLOCK-LICENSE.txt
+  https://github.com/uBlockOrigin/uAssets/blob/master/LICENSE
+- EasyList: consult the notices attached to each upstream list
+  https://github.com/easylist/easylist
+
+The parent Brave Core source remains subject to its own LICENSE file.

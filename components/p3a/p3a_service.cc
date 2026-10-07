@@ -93,8 +93,10 @@ P3AService::~P3AService() = default;
 
 void P3AService::RegisterPrefs(PrefRegistrySimple* registry, bool first_run) {
   MessageManager::RegisterPrefs(registry);
-  registry->RegisterBooleanPref(kP3AEnabled,
-                                !BUILDFLAG(IS_BRAVE_ORIGIN_BRANDED));
+  // [brave-ios-trim] P3A off by default for new users in this custom build
+  // (parity with mac-brave-1.0.4 service trim). Existing users who explicitly
+  // enabled P3A keep their stored pref value; only the default changes.
+  registry->RegisterBooleanPref(kP3AEnabled, false);
   // New users are shown the P3A notice via the welcome page.
   registry->RegisterBooleanPref(kP3ANoticeAcknowledged, first_run);
 

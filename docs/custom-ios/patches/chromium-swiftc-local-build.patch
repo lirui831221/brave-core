@@ -1,0 +1,18 @@
+diff --git a/build/toolchain/apple/swiftc.py b/build/toolchain/apple/swiftc.py
+index 4c1ed0e578..3895a48d3f 100644
+--- a/build/toolchain/apple/swiftc.py
++++ b/build/toolchain/apple/swiftc.py
+@@ -389,6 +389,13 @@ def invoke_swift_compiler(args, extras_args, build_cache_dir, output_file_map):
+     sdk_path = os.path.realpath(args.sdk_path)
+
+     swiftc_args = [
++        # [brave-ios-local-build] Disable swiftc's internal sandbox-exec:
++        # it spawns swift-plugin-server under a nested sandbox profile which
++        # fails with "sandbox_apply: Operation not permitted" when the build
++        # is driven from a managed/restricted execution environment.
++        # This only affects the compiler tool process isolation, not any
++        # product sandboxing (Chromium/iOS app sandbox is unaffected).
++        '-disable-sandbox',
+         '-parse-as-library',
+         '-module-name',
+         args.module_name,

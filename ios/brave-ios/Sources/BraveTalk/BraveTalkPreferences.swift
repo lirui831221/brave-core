@@ -9,10 +9,9 @@ extension PrefService {
   /// Whether or not the Brave Talk feature in general is available to use and the UI should display
   /// buttons/settings for it.
   public var isBraveTalkAvailable: Bool {
-    // Right now this feature is always available unless its managed/forced by policy
-    let isDisabledByPolicy =
-      isManagedPreference(forPath: kBraveTalkDisabledByPolicyPrefName)
-      && boolean(forPath: kBraveTalkDisabledByPolicyPrefName)
-    return !isDisabledByPolicy
+    // [brave-ios-trim] Brave Talk disabled in this custom build
+    // (parity with mac-brave-1.0.4 service trim). Returning false hides the
+    // Talk menu entry and blocks the Jitsi bridge from initializing.
+    return false
   }
 }

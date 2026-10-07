@@ -11,11 +11,10 @@ extension PrefService {
   /// Whether or not the Brave VPN feature in general is available to use and the UI should display
   /// buttons/settings for it.
   public var isBraveVPNAvailable: Bool {
-    // Right now this feature is always available unless its managed/forced by policy
-    let isDisabledByPolicy =
-      isManagedPreference(forPath: kManagedBraveVPNDisabledPrefName)
-      && boolean(forPath: kManagedBraveVPNDisabledPrefName)
-    return !isDisabledByPolicy
+    // [brave-ios-trim] Brave VPN disabled in this custom build
+    // (parity with mac-brave-1.0.4 service trim). Returning false hides the
+    // VPN settings header/row and purchase entry points.
+    return false
   }
 }
 

@@ -19,6 +19,14 @@ extension BrowserViewController {
     if !Preferences.Debug.userAgentOverride.value.isEmpty {
       return Preferences.Debug.userAgentOverride.value
     }
+
+    // [brave-ios-trim] v8: revert the v7 desktop-UA experiment. Sending a
+    // Windows-Chrome UA from an iOS TLS stack is self-contradictory and
+    // trips YouTube's bot detection, which retaliates with guaranteed
+    // 5s unskippable pre-rolls. Requests now keep their native (WebKit
+    // mobile) UA — fully consistent with the TLS fingerprint — and the
+    // 122-line filter set handles whatever ad payloads still arrive.
+    // (v7 lesson learned: identity consistency beats identity spoofing.)
     let isBraveAllowedInUA =
       request.mainDocumentURL.flatMap {
         braveUserAgentExceptions?.canShowBrave($0)

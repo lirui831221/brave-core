@@ -1,0 +1,135 @@
+! Title: Local YouTube compatibility snapshot (iOS P0)
+! Scope: www.youtube.com + m.youtube.com (desktop & mobile); updated with the signed browser.
+! Base: Mac brave-1.0.4 snapshot (uAssets quick-fix + Brave first-party + get_watch patch)
+! P0 additions: domain adaptation for mobile, anti-anti-adblock, network-layer blocking.
+! uAssets: https://raw.githubusercontent.com/brave/adblock-lists-mirror/ef13c66f8fb653058753d5b7a7f489e44fc08dbe/lists/ae9ffb3dd1624d8fa7e3fc3381ff11a4.txt
+! Brave first-party: https://raw.githubusercontent.com/brave/adblock-lists-mirror/ef13c66f8fb653058753d5b7a7f489e44fc08dbe/lists/b85138f942539c8e8909d0c42779d662.txt
+! License and source notices: SOURCES.txt / UBLOCK-LICENSE.txt
+
+! ---------------------------------------------------------------------------
+! [1] Mac 1.0.4 base rules — domains broadened to cover mobile (m.youtube.com).
+! ---------------------------------------------------------------------------
+www.youtube.com,m.youtube.com##+js(trusted-replace-xhr-response, /"adPlacements.*?([A-Z]"\}|"\}{2\,4})\}\]\,/, , /playlist\?list=|\/player(?:\?.+)?$|watch\?[tv]=/)
+www.youtube.com,m.youtube.com##+js(trusted-replace-xhr-response, /"adPlacements.*?("adSlots"|"adBreakHeartbeatParams")/gms, $1, /\/player(?:\?.+)?$/)
+www.youtube.com,m.youtube.com##+js(trusted-replace-fetch-response, '"adPlacements"', '"no_ads"', player?)
+www.youtube.com,m.youtube.com##+js(trusted-replace-fetch-response, '"adSlots"', '"no_ads"', player?)
+www.youtube.com,m.youtube.com##+js(set, ytInitialPlayerResponse.playerAds, undefined)
+www.youtube.com,m.youtube.com##+js(set, ytInitialPlayerResponse.adPlacements, undefined)
+www.youtube.com,m.youtube.com##+js(set, ytInitialPlayerResponse.adSlots, undefined)
+www.youtube.com,m.youtube.com##+js(set, playerResponse.adPlacements, undefined)
+www.youtube.com,m.youtube.com##+js(json-prune-fetch-response, reelWatchSequenceResponse.entries.[-].command.reelWatchEndpoint.adClientParams.isAd entries.[-].command.reelWatchEndpoint.adClientParams.isAd, , propsToMatch, url:/reel_watch_sequence?)
+www.youtube.com,m.youtube.com##+js(json-prune, entries.[-].command.reelWatchEndpoint.adClientParams.isAd)
+www.youtube.com,m.youtube.com##.YtdTalkToRecsFlowRendererHost:has-text(What hobbies are you interested in developing?)
+www.youtube.com,m.youtube.com##tp-yt-paper-dialog.ytd-popup-container:has(> .ytd-popup-container > #options.ytd-checkbox-survey-renderer)
+www.youtube.com,m.youtube.com##tp-yt-paper-dialog.ytd-popup-container:has-text(/How do you feel|Which of the following|following Premium|Get background play|Choose all that apply|Become a member of this channel|Free trial|How are your|How interested|Live TV|Wish videos|better TV|cable box|cable reimagined|hidden fees|of YouTube TV|on YouTube TV|unlimited DVR|with YouTube TV|without the ads|try this feature|Terms apply|View live scores/)
+www.youtube.com,m.youtube.com##.YtdTalkToRecsFlowRendererHost:has-text(/Ask for videos|What do you like|Help us improve/)
+www.youtube.com,m.youtube.com##ytd-ad-slot-renderer
+www.youtube.com,m.youtube.com##ytd-mealbar-promo-renderer
+
+! Pinned uAssets quick-fix for the same-document get_watch player response.
+www.youtube.com,m.youtube.com##+js(trusted-replace-fetch-response, '"adSlots"', '"no_ads"', /get_watch?)
+
+! ---------------------------------------------------------------------------
+! [2] P0 anti-anti-adblock — neutralize "ad blocker detected" warnings and
+!     forced playback pause. (source: personal ruleset doc)
+! ---------------------------------------------------------------------------
+www.youtube.com,m.youtube.com##+js(set, yt.config_.openPopupConfig.supportedPopups.adBlockMessageViewModel, false)
+www.youtube.com,m.youtube.com##+js(json-prune, playerResponse.adPlacements playerResponse.playerAds playerResponse.adSlots)
+www.youtube.com,m.youtube.com##+js(set, Object.prototype.adBlocksFound, 0)
+www.youtube.com,m.youtube.com##+js(set, ytplayer.config.args.raw_player_response.adPlacements, [])
+www.youtube.com,m.youtube.com##+js(set, Object.prototype.hasAllowedInstreamAd, true)
+www.youtube.com,m.youtube.com##tp-yt-paper-dialog.yt-popup-container
+www.youtube.com,m.youtube.com##ytd-enforcement-message-view-model
+www.youtube.com,m.youtube.com###error-screen ytd-enforcement-message-view-model
+
+! ---------------------------------------------------------------------------
+! [3] P0 network-layer ad request blocking. `important` overrides allowlists.
+! ---------------------------------------------------------------------------
+||googlevideo.com/initplayback?$xmlhttprequest,domain=youtube.com,important
+||youtubei.googleapis.com/youtubei/v1/player/ad_break$xmlhttprequest,1p,important
+||youtube.com/api/stats/atr$important
+||youtube.com/api/stats/qoe$important
+||youtube.com/get_midroll_$important
+||youtube.com/ptracking$important
+!
+! v9: pre-roll ad video-segment blocking. The 5s unskippable pre-roll is
+! delivered as separate /videoplayback segments from pagead video hosts.
+! These patterns match the ad-serving variants (id starting with "amz",
+! the "doubleclick" ctm parameter, and the /pagead/ servlet) while normal
+! video segments stay untouched.
+/googlevideo.com/videoplayback?id=amz*$important,media,redirect=noopvmp
+||googlevideo.com/pagead/$important
+||doubleclick.net^$important
+/youtube.com/api/timedtext?*&caps=asr&*expire=$important
+! Ad-measurement / ad pings
+/youtube.com/api/stats/watchtime?*adformat=$important
+||youtube.com/ptracking?*ctyp=ad$important
+
+! ---------------------------------------------------------------------------
+! [3.5] P0+ SSAP mobile hardening — uBO's quick-fixes only target
+!      www.youtube.com (desktop). These mirrored rules bring the same
+!      server-side-ad-injection countermeasures to m.youtube.com, which is
+!      what this personal build always loads (incl. on cellular/5G).
+! -----------------------------------------------------------------------
+www.youtube.com,m.youtube.com##+js(trusted-replace-outbound-text, JSON.stringify, "params":", "params":"yAEB, condition, /("contentPlaybackContext":{".*\,"params":"|"params":".*"contentPlaybackContext":{")/)
+www.youtube.com,m.youtube.com##+js(trusted-replace-outbound-text, JSON.stringify, "contentCheckOk":false, "params":"yAEB"\,"contentCheckOk":false, condition, /^(?=.*"contentPlaybackContext":{")(?!.*"params":").*$/)
+www.youtube.com,m.youtube.com##+js(json-prune, playerResponse.adPlacements playerResponse.playerAds playerResponse.adSlots adPlacements playerAds adSlots legacyImportant)
+www.youtube.com,m.youtube.com##+js(trusted-edit-inbound-object, JSON.stringify, 0, [?.attestationRequest][?.context.client.userAgent*="channel"].context.client[?.clientName=="WEB"]+={"clientScreen":"CHANNEL"})
+www.youtube.com,m.youtube.com##+js(trusted-edit-inbound-object, JSON.stringify, 0, [?.attestationRequest][?.context.client.userAgent*="lactmilli"]+={"params":"8AUB"})
+www.youtube.com,m.youtube.com##+js(set, ytcfg.data_.INNERTUBE_CONTEXT.client.userAgent, )
+!
+! v5: pre-roll SSAP — the mobile web player (m.youtube.com) resolves ads via
+! a *second* player response fetched on the watch page. These rules rewrite
+! both the outbound request shape and every inbound player payload variant
+! the mobile client understands (WEB / WEB_EMBEDDED / MWEB client names).
+www.youtube.com,m.youtube.com##+js(trusted-edit-inbound-object, JSON.stringify, 0, [?.attestationRequest][?.context.client.userAgent*="channel"].context.client[?.clientName=="MWEB"]+={"clientScreen":"CHANNEL"})
+www.youtube.com,m.youtube.com##+js(trusted-edit-inbound-object, JSON.stringify, 0, [?.attestationRequest][?.context.client.userAgent*="channel"].context.client[?.clientName=="WEB_EMBEDDED_PLAYER"]+={"clientScreen":"CHANNEL"})
+www.youtube.com,m.youtube.com##+js(json-prune-fetch-response, response.playerResponse.adPlacements response.playerResponse.playerAds response.playerResponse.adSlots, , propsToMatch, url:/player?)
+www.youtube.com,m.youtube.com##+js(json-prune-fetch-response, adPlacements playerAds adSlots, , propsToMatch, url:/player?)
+www.youtube.com,m.youtube.com##+js(trusted-replace-fetch-response, '"adPlacements":[]', '"adPlacements":[]', /player?)
+www.youtube.com,m.youtube.com##+js(trusted-replace-xhr-response, /"adPlacements".*?("adSlots"|"adBreakHeartbeatParams")/gms, $1, /player\?|watch\?/)
+!
+! v6: pre-roll final layer — on iOS every browser shares a WebKit mobile UA,
+! which YouTube treats as a high-value ad target. Rewrite the innerTube
+! client identity on the /player call chain to a Windows-Chrome WEB client
+! with the ad-free attestation param baked in, and force empty ad slots at
+! every object level the player reads.
+www.youtube.com,m.youtube.com##+js(trusted-replace-outbound-text, JSON.stringify, "clientName":"MWEB", "clientName":"WEB",)
+www.youtube.com,m.youtube.com##+js(trusted-replace-outbound-text, JSON.stringify, "clientName":"IOS", "clientName":"WEB",)
+www.youtube.com,m.youtube.com##+js(trusted-replace-outbound-text, JSON.stringify, "clientName":"WEB_REMIX", "clientName":"WEB",)
+www.youtube.com,m.youtube.com##+js(set, ytcfg.data_.INNERTUBE_CONTEXT.client.clientName, WEB)
+www.youtube.com,m.youtube.com##+js(set, ytcfg.data_.INNERTUBE_CONTEXT.client.clientVersion, 2.20261001.00.00)
+www.youtube.com,m.youtube.com##+js(set, playerResponse.adSlots, [])
+www.youtube.com,m.youtube.com##+js(set, playerResponse.adPlacements, [])
+www.youtube.com,m.youtube.com##+js(json-prune, adPlacements.0.adSlotRenderer.adServingDataRender adSlotMetadataRender, )
+www.youtube.com,m.youtube.com##+js(json-prune, adSlots.[-].adSlotRenderer.adServingDataRender, )
+
+
+
+! ---------------------------------------------------------------------------
+! [4] P1 in-page shell ads — masthead banners, companion slots, display ads.
+! ---------------------------------------------------------------------------
+youtube.com###masthead-ad
+youtube.com##ytd-companion-slot-renderer
+youtube.com##.ytd-in-feed-ad-layout-renderer
+youtube.com##ytd-action-companion-ad-renderer
+youtube.com##ytd-promoted-sparkles-web-renderer
+youtube.com##ytd-promoted-video-renderer
+youtube.com##ytd-statement-banner-renderer
+youtube.com##ytd-display-ad-renderer
+youtube.com##ytd-masthead-ad-advertiser-info-renderer
+
+! ---------------------------------------------------------------------------
+! [5] P1 Shorts / promo shelves.
+! ---------------------------------------------------------------------------
+youtube.com##ytd-rich-shelf-renderer[is-shorts]
+youtube.com##ytd-reel-shelf-renderer
+youtube.com##ytd-donation-shelf-renderer
+
+! ---------------------------------------------------------------------------
+! [6] P1 Premium upsell popups.
+! ---------------------------------------------------------------------------
+youtube.com##yt-mealbar-promo-renderer
+youtube.com##tp-yt-paper-dialog:has(> ytd-mealbar-promo-renderer)
+youtube.com##ytd-popup-container:has(> tp-yt-paper-dialog > yt-mealbar-promo-renderer)
+
